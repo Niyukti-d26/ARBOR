@@ -7,7 +7,7 @@ export async function exportAdminExcel(user) {
 
   // Sheet 1 — Summary
   const ws1 = XLSX.utils.aoa_to_sheet([
-    ["GigShield — Admin Dashboard Report"],
+    ["ARBOR — Admin Dashboard Report"],
     ["Generated on", new Date().toLocaleString("en-IN")],
     [],
     ["PLATFORM OVERVIEW"],
@@ -39,7 +39,7 @@ export async function exportAdminExcel(user) {
 
   // Sheet 3 — Worker Profile
   const ws3 = XLSX.utils.aoa_to_sheet([
-    ["GigShield — Worker Profile"],
+    ["ARBOR — Worker Profile"],
     [],
     ["Field", "Value"],
     ["Name",            user.name],
@@ -65,5 +65,5 @@ export async function exportAdminExcel(user) {
   ws4["!cols"] = [{ wch:14 },{ wch:24 },{ wch:12 },{ wch:12 },{ wch:22 }];
   XLSX.utils.book_append_sheet(wb, ws4, "Zone Risk Map");
 
-  XLSX.writeFile(wb, "GigShield_AdminReport.xlsx");
+  XLSX.writeFile(wb, "ARBOR_AdminReport.xlsx");
 }

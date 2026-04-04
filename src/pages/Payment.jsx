@@ -93,7 +93,7 @@ export default function Payment({ user, onToast }) {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
                     {[
-                      { label: 'Merchant', value: 'GigShield Insurance' },
+                      { label: 'Merchant', value: 'ARBOR Insurance' },
                       { label: 'Amount', value: `₹${plan.price}.00` },
                       { label: 'Plan', value: plan.name + ' Weekly' },
                       { label: 'Method', value: 'UPI / Card / NetBanking' },

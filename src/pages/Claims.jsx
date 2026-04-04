@@ -1,352 +1,520 @@
-import { useState, useEffect, useRef } from 'react';
-import { T, CLAIM_TIMELINE_STEPS } from '../data/constants';
-import { PillTag } from '../components/shared';
+import { useState, useEffect } from 'react';
+import { T, MOCK_CLAIMS, PLANS } from '../data/constants';
+import { fraudDetector } from '../utils/fraudDetector';
+import { eventBus, EVENTS } from '../utils/eventBus';
+import { readState, EVENT_NAME, addPayout, addFraudEvent, addNotification } from '../utils/cropInsuranceState';
 
-function UPIAnimation({ amount, onComplete }) {
-  const [phase, setPhase] = useState('init');
-  useEffect(() => {
-    const delays = [
-      setTimeout(() => setPhase('sending'), 400),
-      setTimeout(() => setPhase('processing'), 1500),
-      setTimeout(() => setPhase('success'), 3000),
-      setTimeout(() => onComplete && onComplete(), 5000),
-    ];
-    return () => delays.forEach(clearTimeout);
-  }, []);
+// ── 4-Stage progress stepper config ──
+const CLAIM_STAGES = [
+  { key: 'Detected',     icon: '🔍', label: 'Detected',          color: '#E23744', bg: '#FEF0F1', border: '#FBBBBC' },
+  { key: 'AI Verifying', icon: '🤖', label: 'AI Verifying',      color: '#F59E0B', bg: '#FFFBEB', border: '#FCD34D' },
+  { key: 'Approved',     icon: '✅', label: 'Approved',           color: '#3B82F6', bg: '#EFF6FF', border: '#BFDBFE' },
+  { key: 'Paid',         icon: '💸', label: `Paid to UPI`,        color: '#60B246', bg: '#EDF7EA', border: '#B7DFB0' },
+];
+
+const STAGE_INDEX = { Detected: 0, 'AI Verifying': 1, Approved: 2, Paid: 3 };
+
+function LiveStepper({ claim }) {
+  const currentIdx = STAGE_INDEX[claim.status] ?? 0;
+  const isPaid = claim.status === 'Paid';
 
   return (
-    <div className="upi-animation-container fade-up" style={{ textAlign: 'center', padding: '32px 24px' }}>
-      {phase === 'init' && (
-        <div className="fade-in">
-          <div className="upi-logo-pulse" style={{ fontSize: 56, marginBottom: 16 }}>💸</div>
-          <p style={{ fontSize: 15, fontWeight: 600, color: T.textSec }}>Initiating UPI transfer...</p>
+    <div style={{
+      background: T.white, border: `1.5px solid ${isPaid ? '#B7DFB0' : T.border}`,
+      borderRadius: 12, padding: 16, marginBottom: 12,
+      transition: 'border-color .4s',
+      boxShadow: isPaid ? '0 0 0 3px rgba(96,178,70,0.1)' : 'none',
+    }}>
+      {/* Claim meta */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{claim.event}</div>
+          <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>
+            {claim.farmer} · {claim.zone} · {new Date(claim.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+          </div>
         </div>
-      )}
-      {phase === 'sending' && (
-        <div className="fade-up">
-          <div style={{ position: 'relative', height: 80, marginBottom: 20 }}>
-            <div className="upi-money-flow">
-              <div className="money-particle" style={{ animationDelay: '0s' }}>₹</div>
-              <div className="money-particle" style={{ animationDelay: '0.2s' }}>₹</div>
-              <div className="money-particle" style={{ animationDelay: '0.4s' }}>₹</div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: isPaid ? '#60B246' : T.primary }}>₹{claim.amount}</div>
+          {isPaid && <div style={{ fontSize: 10, color: '#60B246', fontWeight: 700, animation: 'pulse 2s infinite' }}>PAID ✓</div>}
+        </div>
+      </div>
+
+      {/* 4-stage stepper */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        {CLAIM_STAGES.map((stage, i) => {
+          const isDone    = i < currentIdx;
+          const isActive  = i === currentIdx;
+          const isFuture  = i > currentIdx;
+          return (
+            <div key={stage.key} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                {/* Circle */}
+                <div style={{
+                  width: 40, height: 40, borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: isActive && stage.key === 'AI Verifying' ? 14 : 18,
+                  border: `2px solid ${isDone ? stage.color : isActive ? stage.color : T.border}`,
+                  background: isDone ? stage.color : isActive ? stage.bg : '#FAFAFA',
+                  color: isDone ? 'white' : isActive ? stage.color : T.textMuted,
+                  transition: 'all .4s ease',
+                  animation: isActive ? (stage.key === 'Paid' ? 'paidFlash 1s ease' : 'stepPulse 1.5s infinite') : 'none',
+                }}>
+                  {isDone ? (
+                    '✓'
+                  ) : isActive && stage.key === 'AI Verifying' ? (
+                    <div style={{ width: 16, height: 16, border: `2.5px solid ${stage.color}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin .7s linear infinite' }} />
+                  ) : (
+                    stage.icon
+                  )}
+                </div>
+                {/* Label */}
+                <div style={{
+                  fontSize: 9, fontWeight: isActive || isDone ? 700 : 500,
+                  color: isDone ? stage.color : isActive ? stage.color : T.textMuted,
+                  textAlign: 'center', whiteSpace: 'nowrap',
+                  transition: 'color .4s',
+                }}>
+                  {i === 3 ? `₹${claim.amount} Paid 💸` : stage.label}
+                </div>
+              </div>
+              {/* Connector line */}
+              {i < CLAIM_STAGES.length - 1 && (
+                <div style={{
+                  flex: 1, height: 2,
+                  background: isDone ? CLAIM_STAGES[i].color : T.border,
+                  transition: 'background .5s ease',
+                  margin: '0 4px', marginBottom: 18,
+                }} />
+              )}
             </div>
-          </div>
-          <p style={{ fontSize: 18, fontWeight: 800, color: T.orange }}>Sending ₹{amount}</p>
-          <p style={{ fontSize: 12, color: T.textMuted, marginTop: 4 }}>via UPI Instant Transfer</p>
-          <div className="upi-progress-bar" style={{ marginTop: 16 }}>
-            <div className="upi-progress-fill sending" />
-          </div>
-        </div>
-      )}
-      {phase === 'processing' && (
-        <div className="fade-up">
-          <div className="upi-spinner" style={{ marginBottom: 16 }}>
-            <svg width="60" height="60" viewBox="0 0 60 60">
-              <circle cx="30" cy="30" r="24" fill="none" stroke={T.border} strokeWidth="4" />
-              <circle cx="30" cy="30" r="24" fill="none" stroke={T.green} strokeWidth="4"
-                strokeDasharray="80 70" strokeLinecap="round" style={{ animation: 'spin 1s linear infinite' }} />
-            </svg>
-          </div>
-          <p style={{ fontSize: 16, fontWeight: 700, color: T.green }}>Processing payment...</p>
-          <p style={{ fontSize: 12, color: T.textMuted, marginTop: 4 }}>Verifying with bank</p>
-        </div>
-      )}
-      {phase === 'success' && (
-        <div className="pop-in">
-          <div className="upi-success-check" style={{ marginBottom: 16 }}>
-            <svg width="80" height="80" viewBox="0 0 80 80">
-              <circle cx="40" cy="40" r="36" fill={T.greenLight} stroke={T.green} strokeWidth="3" />
-              <path d="M24 42 L34 52 L56 30" fill="none" stroke={T.green} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"
-                className="check-draw" />
-            </svg>
-          </div>
-          <div className="confetti-burst" />
-          <p style={{ fontSize: 24, fontWeight: 800, color: T.green }}>₹{amount} Received!</p>
-          <p style={{ fontSize: 13, color: T.textSec, marginTop: 6 }}>Money sent to your UPI account</p>
-          <div style={{
-            marginTop: 16, padding: '12px 18px', borderRadius: 10,
-            background: T.greenLight, border: `1px solid ${T.green}20`,
-            display: 'inline-flex', alignItems: 'center', gap: 8
-          }}>
-            <span style={{ fontSize: 16 }}>🏦</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: T.green }}>
-              Transaction ID: GS-{Date.now().toString().slice(-8)}
-            </span>
-          </div>
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function ClaimTimeline({ currentStep, steps }) {
+const AI_PROCESS_STEPS = [
+  'Claim received',
+  'AI fraud analysis running...',
+  'Cross-referencing GPS location...',
+  'Checking claim history...',
+  'Computing fraud score...',
+];
+
+function AIProcessingSteps({ steps, currentStep }) {
   return (
-    <div className="claim-timeline-v2">
-      {steps.map((step, i) => {
-        const isDone = i < currentStep;
-        const isActive = i === currentStep;
-        const isPending = i > currentStep;
-        const color = isDone ? T.green : isActive ? T.orange : T.border;
-        return (
-          <div key={step.id} className={`timeline-step ${isDone ? 'done' : isActive ? 'active' : 'pending'}`}
-            style={{ animationDelay: `${i * 150}ms` }}>
-            <div className="timeline-connector" style={{
-              background: isDone ? T.green : T.border,
-              display: i === 0 ? 'none' : 'block'
-            }} />
-            <div className="timeline-node" style={{
-              background: isDone ? T.greenLight : isActive ? T.orangeLight : T.bg,
-              borderColor: color, color
-            }}>
-              {isDone ? '✓' : step.icon}
-            </div>
-            <div className="timeline-content">
-              <p style={{
-                fontWeight: isDone || isActive ? 700 : 500, fontSize: 13,
-                color: isPending ? T.textMuted : T.text
-              }}>{step.label}</p>
-              <p style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{step.description}</p>
-              {isDone && <span style={{ fontSize: 10, color: T.green, fontWeight: 600 }}>✓ Complete</span>}
-              {isActive && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  <div className="risk-pulse" style={{ background: T.orange, width: 6, height: 6 }} />
-                  <span style={{ fontSize: 10, color: T.orange, fontWeight: 600 }}>In Progress</span>
-                </div>
-              )}
-            </div>
+    <div style={{ marginTop: 12, padding: '12px 14px', background: '#F8F9FF', borderRadius: 8, border: '1px solid #E0E7FF' }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#6366F1', marginBottom: 8, letterSpacing: 0.5 }}>
+        🤖 AI FRAUD ANALYSIS
+      </div>
+      {steps.map((step, i) => (
+        <div key={i} style={{
+          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5,
+          opacity: i <= currentStep ? 1 : 0.3, transition: 'opacity .4s',
+        }}>
+          <div style={{ width: 16, height: 16, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {i < currentStep ? (
+              <span style={{ fontSize: 10, color: T.success }}>✓</span>
+            ) : i === currentStep ? (
+              <div style={{ width: 10, height: 10, border: `2px solid #6366F1`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin .6s linear infinite' }} />
+            ) : (
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: T.border }} />
+            )}
           </div>
-        );
-      })}
+          <span style={{ fontSize: 12, color: i <= currentStep ? T.text : T.textMuted }}>{step}</span>
+        </div>
+      ))}
     </div>
   );
 }
 
 export default function Claims({ user, onToast }) {
+  const plan = PLANS.find(p => p.id === user?.plan) || PLANS[1];
+
+  // ── Shared state claims (from cropInsuranceState) ──
+  const [liveClaims, setLiveClaims] = useState([]);
+
+  // ── Event-bus trigger state (existing flow) ──
+  const [activeTrigger, setActiveTrigger] = useState(null);
   const [claimState, setClaimState] = useState('idle');
-  const [currentStep, setCurrentStep] = useState(0);
-  const [showUPI, setShowUPI] = useState(false);
-  const [expandedClaim, setExpandedClaim] = useState(null);
+  const [pipelineStep, setPipelineStep] = useState(0);
+  const [aiStep, setAiStep]   = useState(-1);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [fraudDetails, setFraudDetails] = useState(null);
 
-  const startZeroTouchClaim = () => {
-    setClaimState('processing');
-    setCurrentStep(0);
-    const intervals = [
-      setTimeout(() => setCurrentStep(1), 800),
-      setTimeout(() => setCurrentStep(2), 1800),
-      setTimeout(() => setCurrentStep(3), 2800),
-      setTimeout(() => setCurrentStep(4), 3800),
-      setTimeout(() => { setCurrentStep(5); setShowUPI(true); }, 4800),
-    ];
+  // ── Listen for cropStateUpdated (shared state) ──
+  useEffect(() => {
+    const handler = () => {
+      const state = readState();
+      setLiveClaims(Array.isArray(state.claims) ? state.claims : []);
+    };
+    handler(); // run once on mount
+    window.addEventListener(EVENT_NAME, handler);
+    return () => window.removeEventListener(EVENT_NAME, handler);
+  }, []);
+
+  // ── Listen for trigger:fired (eventBus, existing flow) ──
+  useEffect(() => {
+    const handleTrigger = (data) => {
+      setActiveTrigger(data);
+      setClaimState('idle');
+      setPipelineStep(0);
+    };
+    const handleAdminDecision = (data) => {
+      if (data.decision === 'approved') {
+        setClaimState('paid');
+        setPipelineStep(2);
+        setShowConfetti(true);
+        onToast(`💸 ₹${plan.dailyPayout} approved by admin — payout sent!`);
+        setTimeout(() => setShowConfetti(false), 3000);
+      } else {
+        setClaimState('fraud-blocked');
+        onToast('✗ Claim rejected by admin.');
+      }
+    };
+    eventBus.on(EVENTS.TRIGGER_FIRED, handleTrigger);
+    eventBus.on(EVENTS.ADMIN_DECISION_MADE, handleAdminDecision);
+    return () => {
+      eventBus.off(EVENTS.TRIGGER_FIRED, handleTrigger);
+      eventBus.off(EVENTS.ADMIN_DECISION_MADE, handleAdminDecision);
+    };
+  }, [plan.dailyPayout]);
+
+  const handleClaim = async () => {
+    if (claimState !== 'idle') return;
+    setClaimState('ai-processing');
+    setAiStep(0);
+    setPipelineStep(0);
+
+    for (let i = 0; i <= AI_PROCESS_STEPS.length - 1; i++) {
+      setAiStep(i);
+      await new Promise(r => setTimeout(r, 700));
+    }
+
+    const result = fraudDetector({ type: activeTrigger?.type, workerId: user?.phone, zone: user?.zone });
+
+    // ── AI decides 100%: fraud score > 0.7 = blocked, everything else = paid ──
+    if (result.fraudScore > 0.7) {
+      setClaimState('fraud-blocked');
+      setFraudDetails(result);
+      onToast('🚨 Claim blocked — fraud detected by AI');
+
+      // Push to shared state → FraudAlerts + Admin
+      addFraudEvent({
+        worker: user?.name,
+        reason: result.reason,
+        fraudScore: result.fraudScore,
+        fraudLabel: result.fraudLabel,
+        zone: user?.zone,
+      });
+      addNotification({
+        type: 'fraud',
+        title: `Claim REJECTED — ${user?.name}`,
+        detail: `${result.reason} · Payment blocked automatically`,
+        worker: user?.name,
+        fraudScore: result.fraudScore,
+      });
+      eventBus.emit(EVENTS.CLAIM_AUTO_REJECTED, {
+        worker: user?.name,
+        reason: result.reason,
+        fraudScore: result.fraudScore,
+        fraudLabel: result.fraudLabel,
+      });
+      eventBus.emit(EVENTS.FRAUD_DETECTED, {
+        worker: user?.name,
+        reason: result.reason,
+        fraudScore: result.fraudScore,
+        fraudLabel: result.fraudLabel,
+      });
+    } else {
+      // Auto-approve (covers both clean claims AND edge cases — AI decides)
+      setClaimState('approved');
+      setPipelineStep(1);
+      await new Promise(r => setTimeout(r, 1000));
+      setPipelineStep(2);
+      setClaimState('paid');
+      setShowConfetti(true);
+      onToast(`💸 ₹${plan.dailyPayout} auto-approved by AI — sent to UPI!`);
+      setTimeout(() => setShowConfetti(false), 3000);
+
+      // Push to shared state → PayoutLedger + Notifications + Admin
+      addPayout({
+        worker: user?.name,
+        amount: plan.dailyPayout,
+        trigger: activeTrigger?.label,
+        zone: user?.zone,
+      });
+      addNotification({
+        type: 'auto-paid',
+        title: `₹${plan.dailyPayout} paid to ${user?.name}`,
+        detail: `${activeTrigger?.label} trigger in ${user?.zone} · Auto-approved by AI · fraudScore: ${result.fraudScore?.toFixed(2)}`,
+        worker: user?.name,
+        amount: plan.dailyPayout,
+      });
+      eventBus.emit(EVENTS.CLAIM_AUTO_APPROVED, {
+        worker: user?.name,
+        amount: plan.dailyPayout,
+        trigger: activeTrigger?.label,
+        zone: user?.zone,
+        fraudScore: result.fraudScore,
+      });
+      eventBus.emit(EVENTS.PAYOUT_COMPLETED, { worker: user?.name, amount: plan.dailyPayout });
+    }
   };
 
-  const handleUPIComplete = () => {
-    setClaimState('completed');
-    if (onToast) onToast('🎉 ₹300 payout confirmed! Check your UPI account.');
-  };
-
-  const resetClaim = () => {
+  const handleReset = () => {
+    setActiveTrigger(null);
     setClaimState('idle');
-    setCurrentStep(0);
-    setShowUPI(false);
+    setPipelineStep(0);
+    setAiStep(-1);
+    setFraudDetails(null);
   };
 
-  const claimHistory = [
-    { id: 'CLM-8291', date: '20 Mar 2026', trigger: 'Monsoon Lock', amount: 300, status: 'paid', steps: 6, duration: '47s', zone: 'Bellandur' },
-    { id: 'CLM-8140', date: '18 Mar 2026', trigger: 'Heavy Rain', amount: 300, status: 'paid', steps: 6, duration: '52s', zone: 'Bellandur' },
-    { id: 'CLM-7892', date: '15 Mar 2026', trigger: 'Heat Halt', amount: 250, status: 'paid', steps: 6, duration: '38s', zone: 'BTM Layout' },
-    { id: 'CLM-7503', date: '10 Mar 2026', trigger: 'Platform Crash', amount: 200, status: 'paid', steps: 6, duration: '61s', zone: 'Koramangala' },
-  ];
+  const ClaimPipeline = ({ currentStep }) => {
+    const STEPS = ['Detected', 'Verified', 'Paid'];
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', padding: '16px 0' }}>
+        {STEPS.map((step, i) => (
+          <div key={step} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: '50%', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', fontSize: 18,
+                border: `2px solid ${i < currentStep ? T.success : i === currentStep ? T.primary : T.border}`,
+                background: i < currentStep ? T.success : i === currentStep ? T.primary : '#FAFAFA',
+                color: i <= currentStep ? 'white' : T.textMuted,
+                animation: i === currentStep ? 'stepPulse 1.5s infinite' : 'none',
+                transition: 'all .4s',
+              }}>
+                {i < currentStep ? '✓' : i === 0 ? '📡' : i === 1 ? '🔍' : '💸'}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: i <= currentStep ? T.text : T.textMuted, textAlign: 'center' }}>{step}</div>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div style={{ flex: 1, height: 2, background: i < currentStep ? T.success : T.border, transition: 'background .4s', margin: '0 4px', marginBottom: 20 }} />
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
-    <div className="page-section">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 4 }}>
-            Zero-Touch Claims
-          </h2>
-          <p style={{ fontSize: 13, color: T.textSec }}>
-            Automated end-to-end: triggered → verified → paid in under 90 seconds
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <PillTag color={T.green}>ZERO-TOUCH</PillTag>
-          <PillTag color={T.blue}>AUTO-CLAIM</PillTag>
-        </div>
-      </div>
+    <div className="page-section fade-up">
 
-      <div className="main-side">
-        {/* Left — Active Claim */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Zero Touch Badge */}
-          <div className="card" style={{
-            padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 16,
-            background: `linear-gradient(135deg, ${T.greenLight}, ${T.blueLight})`,
-            border: `1px solid ${T.green}25`
+      {/* ── Live Claims from shared state (most recent first) ── */}
+      {liveClaims.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: T.textSec, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Live Claims — Real-time
+          </div>
+          {liveClaims.map(claim => (
+            <LiveStepper key={claim.id} claim={claim} />
+          ))}
+        </div>
+      )}
+
+      {/* --- Active Trigger Banner (event bus flow) --- */}
+      {activeTrigger && claimState === 'idle' && (
+        <div className="fade-up" style={{
+          background: 'linear-gradient(135deg, #FFF3CD, #FFF8E7)',
+          border: '1.5px solid #F59E0B', borderRadius: 12,
+          padding: '14px 18px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <span style={{ fontSize: 28 }}>{activeTrigger.icon || '⚡'}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#92400E' }}>Disruption Detected</div>
+            <div style={{ fontSize: 12, color: '#78350F' }}>{activeTrigger.label} in your zone · {user?.zone}</div>
+          </div>
+          <button onClick={handleClaim} style={{
+            background: T.primary, color: 'white', border: 'none', borderRadius: 8,
+            padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            fontFamily: 'Inter, sans-serif',
           }}>
-            <div style={{ fontSize: 32 }}>🤖</div>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 700, fontSize: 14, color: T.green }}>ZERO-TOUCH CLAIM ENGINE</p>
-              <p style={{ fontSize: 12, color: T.textSec, marginTop: 2 }}>
-                No forms · No paperwork · No manual steps — completely automatic
-              </p>
-            </div>
-            <div style={{
-              padding: '6px 14px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-              background: T.green, color: 'white'
-            }}>ENABLED</div>
-          </div>
+            Claim ₹{plan.dailyPayout}
+          </button>
+        </div>
+      )}
 
-          {/* Claim Trigger Card */}
-          {claimState === 'idle' && (
-            <div className="card fade-up" style={{ padding: 24, border: `1px solid ${T.orange}30` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-                <div style={{
-                  width: 50, height: 50, borderRadius: 14, fontSize: 26,
-                  background: T.redLight, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>🌧️</div>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div className="risk-pulse" style={{ background: T.red }} />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: T.red, letterSpacing: '.05em' }}>DISRUPTION DETECTED</span>
-                  </div>
-                  <p style={{ fontSize: 16, fontWeight: 700, marginTop: 2 }}>Heavy Rain — {user.zone}</p>
-                  <p style={{ fontSize: 12, color: T.textSec }}>{user.city} · Rainfall 62mm/hr</p>
+      {/* --- AI Processing --- */}
+      {claimState === 'ai-processing' && (
+        <div className="fade-up" style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 12, padding: 20, marginBottom: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 2 }}>Processing Claim</div>
+          <div style={{ fontSize: 12, color: T.textSec, marginBottom: 4 }}>{activeTrigger?.label}</div>
+          <ClaimPipeline currentStep={pipelineStep} />
+          <AIProcessingSteps steps={AI_PROCESS_STEPS} currentStep={aiStep} />
+        </div>
+      )}
+
+      {/* --- Paid --- */}
+      {(claimState === 'approved' || claimState === 'paid') && (
+        <div className="fade-up" style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 12, padding: 20, marginBottom: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 2 }}>Active Claim</div>
+          <div style={{ fontSize: 12, color: T.textSec, marginBottom: 4 }}>Trigger: {activeTrigger?.label}</div>
+          <ClaimPipeline currentStep={pipelineStep} />
+          {claimState === 'paid' && (
+            <div className="fade-up" style={{ borderTop: `1px solid ${T.border}`, paddingTop: 16, textAlign: 'center', position: 'relative' }}>
+              {showConfetti && (
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  {[...Array(6)].map((_, i) => <div key={i} className="confetti-piece" />)}
                 </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
-                {[
-                  { label: 'Rainfall', value: '62mm/hr (>50mm threshold)', color: T.red },
-                  { label: 'Income Drop', value: '68% (>30% threshold)', color: T.red },
-                  { label: 'GPS Status', value: 'In-zone verified ✓', color: T.green },
-                  { label: 'Trust Score', value: `${user.trustScore} — HIGH`, color: T.green },
-                  { label: 'AI Confidence', value: '94% — Auto-approved', color: T.green },
-                ].map((item, i) => (
-                  <div key={i} style={{
-                    display: 'flex', justifyContent: 'space-between', padding: '10px 14px',
-                    background: T.bg, borderRadius: 10, border: `1px solid ${T.border}`, fontSize: 13
-                  }}>
-                    <span style={{ color: T.textMuted }}>{item.label}</span>
-                    <span style={{ fontWeight: 600, color: item.color }}>{item.value}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{
-                textAlign: 'center', padding: 22, background: T.bg, borderRadius: 14,
-                border: `1px solid ${T.border}`, marginBottom: 18
-              }}>
-                <p style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, letterSpacing: '.04em' }}>PAYOUT AMOUNT</p>
-                <p style={{ fontSize: 48, fontWeight: 800, color: T.green, lineHeight: 1.1 }}>₹300</p>
-                <p style={{ fontSize: 11, color: T.textMuted, marginTop: 4 }}>30% of daily income · within weekly cap</p>
-              </div>
-
-              <button className="btn-primary" onClick={startZeroTouchClaim} style={{
-                background: `linear-gradient(135deg, ${T.green}, #00A844)`,
-                boxShadow: `0 4px 14px rgba(29,185,84,.35)`, fontSize: 15
-              }}>
-                ⚡ AUTO-CLAIM — RECEIVE ₹300 VIA UPI
-              </button>
-            </div>
-          )}
-
-          {/* Active Claim Timeline */}
-          {(claimState === 'processing' || claimState === 'completed') && (
-            <div className="card fade-up" style={{ padding: 24 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700 }}>Claim Progress</h3>
-                {claimState === 'completed' && (
-                  <button className="btn-ghost" onClick={resetClaim} style={{ padding: '6px 14px', fontSize: 12 }}>
-                    ↻ New Claim
-                  </button>
-                )}
-              </div>
-              <ClaimTimeline currentStep={currentStep} steps={CLAIM_TIMELINE_STEPS} />
-              {showUPI && (
-                <UPIAnimation amount={300} onComplete={handleUPIComplete} />
               )}
+              <div style={{ fontSize: 40, marginBottom: 6 }}>🎉</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: T.success }}>₹{plan.dailyPayout}</div>
+              <div style={{ fontSize: 13, color: T.textSec, marginBottom: 4 }}>Auto-approved by AI · sent to UPI</div>
+              <div style={{ fontSize: 11, color: T.textMuted }}>Razorpay Ref: PAY_{Date.now().toString().slice(-8)}</div>
+              <button onClick={handleReset} style={{ marginTop: 12, padding: '7px 16px', borderRadius: 7, border: `1px solid ${T.border}`, background: 'none', color: T.textSec, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Clear</button>
             </div>
           )}
         </div>
+      )}
 
-        {/* Right — History */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Claims Summary */}
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Claims Summary</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {[
-                { label: 'Total Claimed', value: '₹3,400', color: T.green },
-                { label: 'Claims Count', value: '12', color: T.blue },
-                { label: 'Avg Time', value: '49s', color: T.orange },
-                { label: 'Success Rate', value: '100%', color: T.green },
-              ].map((s, i) => (
-                <div key={i} style={{
-                  background: T.bg, borderRadius: 10, padding: 14,
-                  border: `1px solid ${T.border}`, textAlign: 'center'
-                }}>
-                  <p style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</p>
-                  <p style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, marginTop: 2 }}>{s.label}</p>
-                </div>
-              ))}
+      {/* --- Fraud Blocked --- */}
+      {claimState === 'fraud-blocked' && (
+        <div className="fade-up" style={{ background: '#FEF0F1', border: '1.5px solid #FBBBBC', borderRadius: 12, padding: 20, marginBottom: 16 }}>
+          <div style={{ textAlign: 'center', padding: '8px 0' }}>
+            <div style={{ fontSize: 40, marginBottom: 8 }}>🚨</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#E23744', marginBottom: 4 }}>Claim Blocked</div>
+            <div style={{ fontSize: 13, color: '#991B1B', marginBottom: 8 }}>
+              {fraudDetails?.reason || 'Our AI detected suspicious activity. Payment blocked for your protection.'}
+            </div>
+            <div style={{ fontSize: 11, color: '#E23744', padding: '6px 12px', background: '#FFF0F0', borderRadius: 6, display: 'inline-block' }}>
+              Fraud Score: {Math.round((fraudDetails?.fraudScore || 0.9) * 100)}% · Admin notified
+            </div>
+            <button onClick={handleReset} style={{ display: 'block', margin: '14px auto 0', padding: '7px 16px', borderRadius: 7, border: `1px solid ${T.border}`, background: 'none', color: T.textSec, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Dismiss</button>
+          </div>
+        </div>
+      )}
+
+      {/* --- Edge Case --- */}
+      {claimState === 'edge-case' && (
+        <div className="fade-up" style={{ background: '#FFFBEB', border: '1.5px solid #FCD34D', borderRadius: 12, padding: 20, marginBottom: 16 }}>
+          <div style={{ textAlign: 'center', padding: '8px 0' }}>
+            <div style={{ fontSize: 40, marginBottom: 8 }}>⏳</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#92400E', marginBottom: 4 }}>Under Review</div>
+            <div style={{ fontSize: 13, color: '#78350F' }}>
+              AI confidence was low. An admin has been notified and will review shortly.
+            </div>
+            <div style={{ fontSize: 11, color: '#B45309', marginTop: 8, padding: '6px 12px', background: '#FEF3C7', borderRadius: 6, display: 'inline-block' }}>
+              Usually resolved within 2 minutes
             </div>
           </div>
+        </div>
+      )}
 
-          {/* UPI Setup */}
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>UPI Payment Setup</h3>
-            <label className="label">UPI ID</label>
-            <input className="input" defaultValue={user.upiId || "ravi.kumar@ybl"} placeholder="yourname@upi" />
-            <div style={{
-              marginTop: 12, padding: '12px 14px', background: T.greenLight, borderRadius: 10,
-              border: `1px solid ${T.green}20`, fontSize: 12, color: T.green, fontWeight: 600
-            }}>
-              ✅ UPI verified · Payouts typically arrive in &lt;60 seconds
-            </div>
+      {/* --- No active trigger --- */}
+      {!activeTrigger && claimState === 'idle' && liveClaims.length === 0 && (
+        <div style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 12, padding: 24, marginBottom: 16, textAlign: 'center' }}>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>🛡️</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 6 }}>
+            No active disruption detected in your zone
           </div>
+          <div style={{ fontSize: 12, color: T.textMuted, maxWidth: 260, margin: '0 auto' }}>
+            Your coverage is active and monitoring. You'll be notified the moment a disruption is detected.
+          </div>
+          <div style={{ marginTop: 14, padding: '10px 14px', background: '#EDF7EA', border: '1px solid #B7DFB0', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: T.success, animation: 'pulse 2s infinite' }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: T.success }}>AI monitoring active · {user?.zone}</span>
+          </div>
+          <div style={{ marginTop: 10, fontSize: 11, color: T.textMuted }}>
+            💡 Go to <strong>Simulator</strong> tab to test a disruption trigger
+          </div>
+        </div>
+      )}
 
-          {/* Claim History */}
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Claim History</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {claimHistory.map((claim, i) => (
-                <div key={i} style={{ borderRadius: 10, border: `1px solid ${T.border}`, overflow: 'hidden' }}>
-                  <div onClick={() => setExpandedClaim(expandedClaim === i ? null : i)}
-                    className="payout-item" style={{ cursor: 'pointer', margin: 0, borderRadius: expandedClaim === i ? '10px 10px 0 0' : 10 }}>
-                    <div style={{
-                      width: 38, height: 38, borderRadius: 10, background: T.greenLight,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0
-                    }}>✅</div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontWeight: 600, fontSize: 13 }}>{claim.trigger}</p>
-                      <p style={{ fontSize: 11, color: T.textMuted }}>{claim.date} · {claim.zone} · {claim.duration}</p>
-                    </div>
-                    <p style={{ fontWeight: 700, fontSize: 14, color: T.green }}>+₹{claim.amount}</p>
-                  </div>
-                  {expandedClaim === i && (
-                    <div className="fade-in" style={{ padding: '12px 16px', background: T.bg, borderTop: `1px solid ${T.border}` }}>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {CLAIM_TIMELINE_STEPS.map((step, j) => (
-                          <div key={j} style={{
-                            display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px',
-                            borderRadius: 6, background: T.greenLight, border: `1px solid ${T.green}20`,
-                            fontSize: 10, color: T.green, fontWeight: 600
-                          }}>
-                            <span>{step.icon}</span> {step.label} ✓
-                          </div>
-                        ))}
-                      </div>
-                      <p style={{ fontSize: 11, color: T.textMuted, marginTop: 8 }}>
-                        Claim ID: {claim.id} · All {claim.steps} steps auto-completed
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+      {/* Coverage at a Glance */}
+      <div style={{ background: '#FFF5F0', border: `1px solid #FFD5C2`, borderRadius: 12, padding: '14px 18px', marginBottom: 20, display: 'flex', justifyContent: 'space-between' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: T.primary }}>₹{plan.cap}</div>
+          <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: 'uppercase' }}>Max Coverage</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: T.primary }}>₹{plan.dailyPayout}</div>
+          <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: 'uppercase' }}>Per day payout</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: T.primary }}>{plan.days}</div>
+          <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: 'uppercase' }}>Max days/event</div>
         </div>
       </div>
+
+      {/* Recent Claims — ONLY this worker's claims */}
+      <div style={{ fontSize: 13, fontWeight: 700, color: T.textSec, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        My Claims
+        {liveClaims.filter(c => c.farmer === user?.name).length > 0 && (
+          <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: '#60B246', background: '#EDF7EA', padding: '2px 7px', borderRadius: 4 }}>
+            ● {liveClaims.filter(c => c.farmer === user?.name).length} live
+          </span>
+        )}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Live simulated claims — only this worker */}
+        {liveClaims.filter(c => c.farmer === user?.name).map((claim) => {
+          const isPaid    = claim.status === 'Paid';
+          const isBlocked = claim.status === 'Fraud Blocked';
+          const statusColors = {
+            'Detected':     { bg: '#FEF0F1', color: '#E23744' },
+            'AI Verifying': { bg: '#FFFBEB', color: '#F59E0B' },
+            'Approved':     { bg: '#EFF6FF', color: '#3B82F6' },
+            'Paid':         { bg: '#EDF7EA', color: '#60B246' },
+          };
+          const sc = statusColors[claim.status] || statusColors['Detected'];
+          return (
+            <div key={claim.id} style={{
+              background: T.white, border: `1.5px solid ${isPaid ? '#B7DFB0' : '#F0F0F0'}`,
+              borderRadius: 12, padding: 16,
+              display: 'flex', alignItems: 'center', gap: 14,
+              boxShadow: isPaid ? '0 0 0 3px rgba(96,178,70,0.08)' : 'none',
+              transition: 'all .3s',
+            }}>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: sc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+                {isPaid ? '✅' : isBlocked ? '❌' : '🔍'}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>
+                  {claim.event}
+                  <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, color: '#60B246', background: '#EDF7EA', padding: '1px 6px', borderRadius: 3 }}>LIVE</span>
+                </div>
+                <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{claim.zone}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: sc.color }}>₹{claim.amount}</div>
+                <div style={{ fontSize: 10, color: sc.color, fontWeight: 700, textAlign: 'right', marginTop: 2 }}>{claim.status}</div>
+              </div>
+            </div>
+          );
+        })}
+        {/* Seed / historical claims — only for this worker's zone */}
+        {MOCK_CLAIMS.filter(c => c.zone === user?.zone || !user?.zone).map((claim) => (
+          <div key={claim.id} style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: claim.status === 'paid' ? '#EDF7EA' : '#FEF0F1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+              {claim.status === 'paid' ? '✅' : '❌'}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{claim.trigger}</div>
+              <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{claim.date} · {claim.zone}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: claim.status === 'paid' ? T.success : T.danger }}>₹{claim.amount}</div>
+              <div style={{ fontSize: 10, color: claim.status === 'paid' ? T.success : T.danger, fontWeight: 600, textAlign: 'right' }}>
+                {claim.status === 'paid' ? 'Paid' : 'Rejected'}
+              </div>
+            </div>
+          </div>
+        ))}
+        {/* Empty state — no claims yet */}
+        {liveClaims.filter(c => c.farmer === user?.name).length === 0 &&
+          MOCK_CLAIMS.filter(c => c.zone === user?.zone || !user?.zone).length === 0 && (
+          <div style={{ textAlign: 'center', padding: '32px 20px', color: T.textMuted, background: T.white, borderRadius: 12, border: `1px solid ${T.border}` }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>No claims yet</div>
+            <div style={{ fontSize: 12 }}>Trigger a simulation to see your claims here</div>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }

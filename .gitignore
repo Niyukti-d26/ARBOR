@@ -24,3 +24,11 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Environment secrets
+.env
+backend/.env
+*.env.local
+
+# Rename helper scripts (temp)
+rename_arbor.*

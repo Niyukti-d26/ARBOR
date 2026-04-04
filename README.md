@@ -1,122 +1,112 @@
-# GigShield — AI-Powered Income Protection for India's Gig Workers
+# 🌿 ARBOR — Shelter and Stability
 
-> When it rains in Bellandur, delivery riders don't earn. GigShield fixes that.
+> AI-powered income protection for India's gig workers. When it rains in Bellandur, delivery riders don't earn. ARBOR fixes that — automatically.
 
 ---
 
 ## The Problem We're Solving
 
-India's gig economy employs over 15 million workers — delivery riders on Swiggy and Zomato, cab drivers on Uber and Ola, and hyperlocal agents on Zepto, Blinkit, and Dunzo. Unlike salaried employees, these workers have absolutely no income safety net.
+India's gig economy employs over **15 million workers** — delivery riders on Swiggy and Zomato, cab drivers on Uber and Ola, and hyperlocal agents on Zepto, Blinkit, and Dunzo. Unlike salaried employees, these workers have absolutely no income safety net.
 
 When it pours during monsoon season, when a heat wave makes it unsafe to ride, when a platform goes down for maintenance, or when a zone gets locked due to waterlogging — they simply stop earning. There's no sick leave, no insurance claim they can file, and no employer to fall back on.
 
 **The numbers paint a clear picture:**
 - 68% of gig workers report significant income loss during monsoon months
-- Workers lose 6 to 10 earning days per month due to factors entirely outside their control
+- Workers lose 6–10 earning days per month due to factors entirely outside their control
 - Less than 3% have any form of income protection whatsoever
 
 Traditional insurance doesn't work here — it's too slow, too expensive, and designed for annual claims, not daily disruptions.
 
 ---
 
-## What GigShield Does
+## What ARBOR Does
 
-GigShield is a **parametric micro-insurance platform** built specifically for gig workers. It monitors real-world conditions in real time and automatically pays workers when verified disruptions hit their zone — no paperwork, no waiting, no manual claims.
+ARBOR is a **parametric micro-insurance platform** built specifically for gig workers. It monitors real-world conditions in real time and automatically pays workers when verified disruptions hit their zone — no paperwork, no waiting, no manual claims.
 
-Here's how a typical payout works:
+### How a typical payout works:
 
 1. **A disruption hits** — heavy rain starts in Bellandur, Bengaluru. IMD confirms 42mm/hr rainfall.
 2. **AI detects the impact** — order volume in the zone drops 68%. The worker's GPS confirms they're in the affected area.
-3. **Composite triggers validate** — rainfall threshold crossed AND income drop exceeds 30% AND worker was active in zone AND community peers confirm the disruption. All conditions must be true simultaneously.
-4. **The worker taps once to confirm** — a bottom sheet shows the payout amount, AI confidence score, and trigger details.
+3. **Composite triggers validate** — rainfall threshold crossed AND income drop exceeds 30% AND worker was active in zone. All conditions must be true simultaneously.
+4. **100% AI-automated** — the AI decides whether to pay or block based on fraud scoring. Zero human intervention.
 5. **Money hits their UPI in 90 seconds** — no forms, no waiting period, no questions asked.
 
 The key innovation is **composite triggers** — payouts don't fire on a single signal. Multiple independent data sources must agree before any money moves, which keeps fraud near zero while making legitimate payouts instant.
 
 ---
 
-## Adversarial Defense & Anti-Spoofing Strategy
+## ✨ Key Features
 
-We designed GigShield knowing that any system that sends money automatically will be a target. The specific threat we're defending against: coordinated fraud rings — groups of workers who use GPS spoofing apps, organise via Telegram, and fake their presence in disruption zones to drain the liquidity pool while sitting safely at home.
+### 🤖 Fully Automated AI Claims Pipeline
+- **Zero-Touch Automation**: No manual admin approval needed. The AI makes 100% of payout decisions.
+- Claims with fraud score > 0.7 are automatically blocked; everything else is auto-paid.
+- Real-time claim timeline: Triggered → AI Verifying → Approved → Paid.
 
-Simple GPS verification is not enough. Our defense is layered, behavioural, and designed to catch coordinated attacks without punishing honest workers.
+### 🧠 ML-Driven Dynamic Pricing Engine
+- Premium is **computed per-worker** based on their specific city, zone, and risk profile.
+- **20+ zone risk profiles** with hyper-local data: flood risk, traffic density, historical incidents.
+- **Safe zone discounts**: Workers in historically safe zones (e.g., Indiranagar, Jayanagar) pay ₹2–5 less per week — ML rewards low-risk areas.
+- **Trust Score rewards**: Workers with trust score ≥ 80 get an additional ₹5/week discount.
+- Full transparent breakdown: workers see exactly why their premium is what it is.
 
-### 1. How We Tell a Real Worker from a Spoofer
+### 📊 Real-Time Reactive Architecture
+- Shared state via `cropInsuranceState.js` using `localStorage` + `CustomEvent` (`cropStateUpdated`).
+- **All components sync in real-time**: SimulationPanel → Claims, Admin Dashboard, Fraud Alerts, Notifications, Payout Ledger.
+- Worker-specific data isolation: workers only see their own claims, not the entire platform.
 
-GPS coordinates are just one of many signals. A spoofed phone can fake its lat-long, but it cannot fake the full environmental fingerprint of actually being outside in a storm:
+### 🔐 Worker Data Isolation
+- Claims page filtered by `user.name` — each worker sees only their own claims.
+- Mock historical claims filtered by zone.
+- New workers auto-registered in shared state and visible in Admin → Workers page instantly.
 
-**Sensor Fusion Layer** — Every claim is validated against multiple on-device signals that GPS spoofing apps cannot replicate:
+### 🛡️ 5 Live Trigger Types
+| Trigger | Threshold | Source |
+|---------|-----------|--------|
+| 🌧️ Heavy Rainfall | > 50mm/hr | IMD API |
+| 😷 Hazardous AQI | > 300 | CPCB Sensors |
+| 🚦 Traffic Gridlock | Severity > 8 | HERE API |
+| 📱 Platform Outage | Uptime < 90% | Platform API |
+| 🌡️ Extreme Heat | Heat Index > 42°C | Weather API |
 
-| Signal | What it reveals | Why spoofers can't fake it |
-|--------|----------------|---------------------------|
-| Accelerometer + Gyroscope | Walking/riding motion patterns | A phone lying on a table shows zero motion variance, even if GPS says it's moving at 20km/hr |
-| Barometric pressure | Altitude consistency + weather correlation | If IMD says atmospheric pressure dropped to 1002 hPa in the zone, the phone's barometer should agree |
-| Cell tower triangulation | Independent location verification | The phone connects to towers near its real location, not the spoofed GPS coordinates |
-| WiFi BSSID scan | Neighbourhood-level positioning | Home WiFi networks are fingerprinted during onboarding — if the same home SSID appears during a "stranded in rain" claim, it's flagged |
-| Ambient light + noise | Environmental conditions | Heavy rain produces distinct audio signatures and reduced ambient light — a phone indoors in a lit room fails this check |
-| Battery temperature | Thermal stress from outdoor conditions | Phones exposed to rain, heat, or direct sun show measurably different thermal profiles than indoor phones |
+**Composite Trigger**: fires only when ALL conditions are simultaneously met.
 
-No single sensor is definitive, but a spoofer would need to simultaneously fake GPS, motion patterns, barometric pressure, cell tower connections, WiFi environment, ambient audio, and battery thermal data. That's practically impossible.
-
-**Platform Activity Cross-Reference** — We pull the worker's real-time status from Swiggy, Zomato, or whichever platform they're registered with. If a worker claims they're stranded in a red-alert zone but their platform dashboard shows they went offline 3 hours ago (before the disruption even started), the claim is flagged. A genuinely stranded worker would show a pattern of: active → orders dropping → forced idle.
-
-**Historical Behaviour Model** — Every worker builds a behavioural baseline over time: their typical working hours, their regular delivery routes, how they respond to past weather events. A worker who has never once operated in Bellandur suddenly filing a claim from Bellandur during a storm is statistically suspicious. The model computes a deviation score — high deviation triggers additional verification, not automatic denial.
-
-### 2. How We Detect Coordinated Fraud Rings
-
-Individual spoofers are relatively easy to catch. The harder problem is 500 workers coordinating via Telegram to file simultaneous claims from the same zone. Here's how we detect that:
-
-**Temporal Clustering Detection** — We monitor claim submission timestamps across the entire zone. Organic claims during a real disruption follow a natural distribution — some workers file immediately, some wait, some don't file at all. A coordinated ring produces a statistically unnatural spike: dozens of claims within a 30-second window, all from workers who weren't showing active delivery patterns beforehand.
-
-**Social Graph Analysis** — Over time, we build an implicit social graph: which workers tend to file claims in similar patterns, from similar locations, at similar times. When a cluster of workers who have historically correlated claim behaviour all file simultaneously from a zone where none of them have regular delivery history, the entire cluster gets flagged for review.
-
-**Device Fingerprinting** — Each device has a unique fingerprint: hardware model, OS version, installed apps, screen resolution, and dozens of other signals. We look for anomalies: multiple "different" workers filing from devices that share suspicious similarities (same spoofing app installed, same VPN exit node, same device configuration patterns). One phone cannot easily pretend to be 50 different phones.
-
-**Peer Disagreement Signals** — In a genuine disruption, most workers in the zone agree that conditions are bad. If 30 workers claim a zone is completely flooded but 200 other active workers in the same zone are still completing deliveries normally, the math doesn't add up. We compare claim density against actual delivery activity — and a real storm suppresses activity uniformly, not selectively.
-
-**Liquidity Pool Velocity Monitor** — We track the rate at which the payout pool is being drained. Organic claims during a genuine monsoon event drain the pool gradually over hours. A coordinated attack drains it in minutes. If the pool velocity exceeds 3 standard deviations from the historical mean for that zone and weather severity, all pending payouts are paused for a 15-minute human review window.
-
-### 3. Handling Flagged Claims Without Punishing Honest Workers
-
-This is the hardest design problem. A genuine worker stuck in rain with a phone that has a weak GPS signal looks, on paper, similar to a spoofer. We refuse to build a system that denies legitimate claims out of paranoia.
-
-**Tiered Verification, Not Binary Rejection:**
-
-- **Green (Trust Score 80+, all sensors consistent)** — instant payout, no friction. This is the experience for the vast majority of honest workers.
-- **Amber (1-2 signals anomalous, moderate deviation)** — the worker sees a brief additional step: a photo of their current surroundings, uploaded in-app. We use a lightweight image classifier to check for weather consistency (rain visible, wet roads, etc). Takes 15 seconds, payout within 3 minutes.
-- **Red (3+ signals failed, or matched to a known fraud cluster)** — the claim is escalated to a human reviewer. The worker is told: "Your claim is being reviewed — expected resolution within 2 hours." They are NOT told they're suspected of fraud. If the review clears them, they get paid with a bonus trust score bump and a small inconvenience credit.
-
-**Trust Score Rehabilitation** — A single false positive doesn't permanently damage a worker's standing. Trust scores recover over time through consistent legitimate behaviour. A worker who was wrongly flagged once will be back to green-tier within 2 weeks of normal activity.
-
-**Transparent Appeals** — Any denied claim can be appealed with supporting evidence (screenshots of weather apps, photos, platform delivery history). Appeals are reviewed by a different human reviewer than the one who made the initial decision. If the appeal succeeds, the worker receives the full payout plus a compensation bonus.
-
-**The Core Principle** — We'd rather let a few marginal fraud cases through than deny a single genuine worker who's stuck in the rain with no money. The system is deliberately calibrated to favour false negatives (paying a few spoofers) over false positives (denying real workers). The fraud detection model tightens over time as it sees more data, but the worker experience always leans toward trust.
+### 🕵️ AI Fraud Detection
+- Real-time fraud scoring on every claim.
+- GPS spoofing detection, temporal clustering analysis, behaviour deviation scoring.
+- Fraud events auto-propagate to Admin Dashboard, Fraud Alerts page, and Notifications — all live.
 
 ---
 
-## What's Inside the App
+## For Workers
 
-### For Workers
+| Feature | Description |
+|---------|-------------|
+| **Dashboard** | Real-time weather, AQI, platform status, heat index, weekly earnings chart |
+| **My Policy** | Active plan details, ML pricing breakdown, AI pricing engine live panel |
+| **Claims** | Worker's own claims with live status tracking, auto-paid timeline |
+| **Simulation** | Trigger disruption events to see the full AI pipeline in action |
+| **Razorpay Payments** | Real payment integration for premium collection |
 
-- **Onboarding** — pick your city, zone (flood-prone zones are clearly marked), platform, and plan in under a minute
-- **Dashboard** — see your active plan, earnings protected this week, trust score, zone risk status, and recent payouts at a glance
-- **Plan Selection** — three weekly plans (Starter at Rs.50/week, Standard at Rs.80/week, Pro at Rs.120/week) with clear breakdown of daily payout, weekly cap, and payout days
-- **Disruption Simulation** — tap the orange FAB button to see the full trigger-to-payout flow in action, with AI confidence scoring and UPI payout confirmation
+## For Admins
 
-### For Operators
-
-- **Admin Console** — platform-wide stats including total users, active claims, fraud alerts, and average trust scores
-- **Claims Table** — every recent claim with worker name, zone, trigger type, payout amount, status, and AI confidence score
-- **Excel Export** — one-click download of a 4-sheet report covering platform summary, all claims, worker profile, and a complete zone risk map across all 7 cities
+| Feature | Description |
+|---------|-------------|
+| **Dashboard** | Platform stats, live fraud alerts, recent claims |
+| **Workers** | All workers (mock + live-registered) with trust scores, plans, zones |
+| **Payout Ledger** | Real-time payout tracking with live counters |
+| **Fraud Alerts** | Live fraud event feed with flash animations |
+| **Notifications** | AI-generated alerts for payouts, fraud, and system events |
+| **Zone Risk Map** | 84 real zones across 7 cities with trigger engine |
+| **Live Monitor** | Real-time platform monitoring |
 
 ---
 
 ## Zone Coverage
 
-We mapped **84 real zones across 7 major Indian cities**, split into flood-prone and normal categories based on actual geographic and historical flooding data:
+**84 real zones across 7 major Indian cities**, classified by actual flood-prone data:
 
-| City | Flood-Prone Zones | Normal Zones |
-|------|------------------|-------------|
+| City | Flood-Prone Zones | Safe Zones |
+|------|------------------|------------|
 | **Bengaluru** | Bellandur, Varthur, Mahadevapura, HSR Layout, Koramangala, Electronic City | Indiranagar, Whitefield, Jayanagar, Marathahalli, Rajajinagar, BTM Layout |
 | **Mumbai** | Kurla, Sion, Dharavi, Wadala, Chembur, Govandi | Bandra, Andheri West, Borivali, Dadar, Malad, Thane |
 | **Chennai** | Velachery, Tambaram, Pallikaranai, Perungudi, Adyar, Thiruvanmiyur | Anna Nagar, T.Nagar, Mylapore, Porur, Nungambakkam, Chromepet |
@@ -125,19 +115,48 @@ We mapped **84 real zones across 7 major Indian cities**, split into flood-prone
 | **Pune** | Hadapsar, Kondhwa, Wanowrie, Bibwewadi, Katraj, Ambegaon | Koregaon Park, Viman Nagar, Kothrud, Baner, Aundh, Wakad |
 | **Kolkata** | Tiljala, Topsia, Tangra, Kasba, Behala, Garden Reach | Salt Lake, New Town, Park Street, Ballygunge, Jadavpur, Dum Dum |
 
-Flood-prone zones get rain and flood triggers. Normal zones are covered for heat waves, platform outages, and traffic disruptions.
-
 ---
 
 ## Pricing Model
 
 | Plan | Weekly Premium | Daily Payout | Weekly Cap | Max Payout Days |
 |------|---------------|-------------|-----------|----------------|
-| Starter | Rs.50 | Rs.200 | Rs.1,000 | 2 per week |
-| Standard | Rs.80 | Rs.300 | Rs.1,500 | 3 per week |
-| Pro | Rs.120 | Rs.400 | Rs.2,500 | 4 per week |
+| Starter | ₹50 | ₹200 | ₹1,000 | 2 per week |
+| Standard | ₹80 | ₹300 | ₹1,500 | 3 per week |
+| Pro | ₹120 | ₹400 | ₹2,500 | 4 per week |
 
-Workers pay a small weekly premium and receive automatic payouts whenever a verified disruption hits their zone. They can switch plans or cancel anytime with no fees.
+> **ML Dynamic Adjustment**: Actual premium varies by zone risk, city weather, incident history, and trust score. Workers in safe zones pay less; high-risk zones pay more.
+
+---
+
+## Adversarial Defense & Anti-Spoofing
+
+ARBOR is designed for adversarial environments. Any system that sends money automatically will be a target.
+
+### Sensor Fusion Layer
+Every claim is validated against multiple signals that GPS spoofing apps cannot replicate:
+
+| Signal | What it reveals | Why spoofers can't fake it |
+|--------|----------------|---------------------------|
+| Accelerometer + Gyroscope | Walking/riding motion patterns | A phone on a table shows zero motion variance |
+| Barometric pressure | Altitude + weather correlation | Must match IMD readings for the zone |
+| Cell tower triangulation | Independent location verification | Connects to towers near real location |
+| WiFi BSSID scan | Neighbourhood-level positioning | Home WiFi fingerprinted during onboarding |
+| Ambient light + noise | Environmental conditions | Rain produces distinct audio signatures |
+| Battery temperature | Thermal stress from outdoor conditions | Outdoor phones have different thermal profiles |
+
+### Coordinated Fraud Ring Detection
+- **Temporal clustering**: Organic claims follow natural distribution; coordinated attacks show unnatural spikes.
+- **Social graph analysis**: Workers with correlated claim patterns flagged as clusters.
+- **Device fingerprinting**: Detects multiple accounts from similar devices.
+- **Peer disagreement signals**: If 30 workers claim flooding but 200 are still delivering, the math doesn't add up.
+- **Liquidity pool velocity monitor**: Pool draining too fast pauses all payouts for 15-min review.
+
+### Trust Score System
+- **Green (80+)**: Instant payout, no friction.
+- **Amber (40–79)**: Brief photo verification, payout within 3 minutes.
+- **Red (<40)**: Escalated to human review within 2 hours.
+- Trust scores rehabilitate over time through consistent behaviour.
 
 ---
 
@@ -147,21 +166,13 @@ Workers pay a small weekly premium and receive automatic payouts whenever a veri
 |-------|-----------|
 | Frontend | React 19, Vite 6 |
 | Styling | CSS-in-JS (inline styles + injected stylesheet) |
+| Typography | Inter (Google Fonts) |
+| Payments | Razorpay (test mode) |
+| State Management | localStorage + CustomEvent (`cropStateUpdated`) |
 | Charts | SVG-based inline visualisations |
-| Data Export | SheetJS (xlsx) loaded via CDN |
-| Typography | Plus Jakarta Sans (Google Fonts) |
-| Architecture | Single-file React app (App.jsx) |
-
----
-
-## Running Locally
-
-```bash
-npm install
-npm run dev
-```
-
-Open `http://localhost:5173` in your browser. Fill in the onboarding form, pick a zone (try a flood-prone one), and tap the orange lightning button on the dashboard to see the full payout flow.
+| Data Export | SheetJS (xlsx) via CDN |
+| Weather | OpenWeatherMap API |
+| Architecture | Modular React (pages + utils + services) |
 
 ---
 
@@ -169,12 +180,67 @@ Open `http://localhost:5173` in your browser. Fill in the onboarding form, pick 
 
 ```
 src/
-  App.jsx          — entire application (data, components, screens, routing)
-  main.jsx         — React DOM entry point
-  index.css        — base reset (minimal, most styles are in App.jsx)
+├── App.jsx                 — Root app component, routing, navigation shells
+├── main.jsx                — React DOM entry point
+├── index.css               — Global styles, animations, design system
+├── data/
+│   └── constants.js        — Design tokens, plans, mock data, zone configs
+├── pages/
+│   ├── SplashScreen.jsx    — ARBOR splash animation
+│   ├── LandingPage.jsx     — Marketing landing page
+│   ├── WorkerAuth.jsx      — Worker OTP login + profile setup
+│   ├── AdminAuth.jsx       — Admin 2FA login
+│   ├── WorkerDashboard.jsx — Worker home: weather, earnings, AI tips
+│   ├── MyPolicy.jsx        — Policy details + ML pricing engine
+│   ├── Claims.jsx          — Worker's claims (filtered, worker-specific)
+│   ├── SimulationPanel.jsx — Trigger simulation engine
+│   ├── AdminDashboard.jsx  — Admin overview + live fraud panel
+│   ├── WorkerManagement.jsx— Admin workers table (live + mock)
+│   ├── PayoutLedger.jsx    — Real-time payout tracking
+│   ├── FraudAlerts.jsx     — Live fraud event feed
+│   ├── Notifications.jsx   — AI notification center
+│   ├── LiveMonitor.jsx     — Real-time platform monitor
+│   └── ZoneRiskMap.jsx     — Zone risk map + trigger engine
+├── utils/
+│   ├── cropInsuranceState.js — Shared reactive state (localStorage + events)
+│   ├── razorpay.js         — Razorpay payment integration
+│   ├── fraudDetector.js    — AI fraud scoring engine
+│   ├── eventBus.js         — Socket.io simulation
+│   └── exportExcel.js      — Admin Excel report generation
+└── services/
+    └── realtimeData.js     — Real-time data service
 ```
 
-Everything lives in a single `App.jsx` file — data constants, design tokens, CSS string, utility functions, Excel export logic, micro-components, all four screens (Onboarding, Dashboard, Plans, Admin), the trigger bottom sheet, bottom navigation, and the root App component.
+---
+
+## Running Locally
+
+```bash
+git clone https://github.com/Niyukti-d26/GigShield.git
+cd GigShield
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173` in your browser.
+
+### Demo Credentials
+
+| Role | Login |
+|------|-------|
+| **Worker** | Click **Quick Login →** on the auth page (instant, skips OTP) |
+| **Admin** | Email: `admin@arbor.com` / Password: `admin123` → OTP: `654321` |
+| **Admin (instant)** | Click **Admin Access →** on the auth page |
+
+---
+
+## API Keys (Demo/Test)
+
+```env
+VITE_WEATHER_API_KEY=0a747540101ae72eb9b0c97f65f8513b
+VITE_RAZORPAY_KEY=rzp_test_SZMKxhD3GugEU6
+RAZORPAY_SECRET=zDl1yhkFK0QxNMpPud651MxD
+```
 
 ---
 
@@ -182,54 +248,26 @@ Everything lives in a single `App.jsx` file — data constants, design tokens, C
 
 - **Solves a real problem** — 15M+ gig workers in India with zero income protection
 - **Novel approach** — parametric insurance with composite triggers is a genuine fintech innovation
-- **Working prototype** — full onboarding-to-payout flow, not just mockups
-- **Adversarial resilience** — multi-layered anti-spoofing defense that doesn't sacrifice UX for honest workers
-- **AI/ML integration** — fraud detection, trust scoring, income prediction, sensor fusion
-- **Real geographic data** — 84 actual zones across 7 cities with accurate flood-prone classification
-- **Financial inclusion** — targets underserved daily-wage workers, not the already-insured middle class
-- **Instant value** — 90-second UPI payouts vs weeks-long traditional insurance claims
+- **100% AI automation** — zero human intervention in the claims pipeline
+- **ML-driven pricing** — dynamic premiums based on hyper-local risk, not flat rates
+- **Working prototype** — full onboarding-to-payout flow with real Razorpay payments
+- **Adversarial resilience** — multi-layered anti-spoofing defense
+- **Real-time reactive** — all components sync instantly via event-driven architecture
+- **Real geographic data** — 84 actual zones across 7 cities with accurate classification
+- **Financial inclusion** — targets underserved daily-wage workers
+- **Instant value** — 90-second UPI payouts vs weeks-long traditional claims
 
 ---
 
-## Future Implementation
+## Future Roadmap
 
-### Phase 1 — Live Data Integration (Weeks 1-4)
-
-Right now, the app runs on mock data. The first thing we'd build in production is real-time data pipelines:
-
-- **Weather API (OpenWeatherMap + IMD)** — pull live rainfall, temperature, and flood alerts per zone every 5 minutes. Triggers fire automatically when rainfall exceeds zone-specific thresholds (e.g., 35mm/hr for Bellandur, 50mm/hr for Indiranagar based on drainage capacity).
-- **Traffic and Road Conditions (HERE API + Google Roads)** — detect waterlogging, road closures, and traffic jams that prevent deliveries. Critical for normal zones where disruptions are traffic-based.
-- **Platform API Integration** — connect directly with Swiggy, Zomato, Zepto, and Blinkit APIs to verify real-time order volume, rider availability, and platform outage status.
-- **Air Quality (CPCB Sensors)** — AQI readings above 350 would activate health-hazard triggers, especially relevant for Delhi and Kolkata during winter months.
-
-### Phase 2 — Real Payments and Identity (Weeks 5-8)
-
-- **UPI Disbursement via Razorpay/PayU** — replace the simulated payout with actual UPI transfers using Razorpay's Route API for instant splits, keeping disbursement under 90 seconds.
-- **Aadhaar eKYC** — lightweight identity verification during onboarding to satisfy IRDAI regulatory requirements and prevent duplicate accounts.
-- **UPI Autopay for Premiums** — weekly premium collection via UPI autopay mandates.
-- **Payout History and Tax Statements** — downloadable transaction history and annual tax summaries.
-
-### Phase 3 — Anti-Spoofing ML Pipeline in Production (Weeks 9-12)
-
-- **Sensor Fusion Model** — deploy the multi-signal verification engine (accelerometer, barometer, cell tower, WiFi, ambient sensors) as a real-time inference service, scoring every claim in under 200ms.
-- **Fraud Ring Detection** — graph neural network trained on the worker social graph to identify coordinated claim clusters. Temporal clustering + device fingerprinting + peer disagreement signals feed into an ensemble model.
-- **Dynamic Trust Scoring** — trust scores updated in real-time based on claim legitimacy, peer validation, GPS consistency, and platform activity logs.
-- **Zone Risk Prediction** — time-series model predicting disruption probability 6-12 hours ahead using weather forecasts, historical patterns, and satellite imagery.
-
-### Phase 4 — Mobile App and Scale (Weeks 13-20)
-
-- **React Native App** — lightweight mobile app with offline-first architecture and push notifications for disruption alerts.
-- **Regional Languages** — full UI translation into Hindi, Tamil, Kannada, Telugu, Bengali, and Marathi with culturally adapted onboarding flows.
-- **Community Shield** — peer validation system where workers in the same zone confirm or dispute disruptions, adding a human layer to composite triggers.
-- **City Expansion** — extend beyond 7 cities to cover Ahmedabad, Jaipur, Lucknow, Kochi, Chandigarh, and other Tier-2 cities.
-
-### Phase 5 — Partnerships and Compliance (Months 6-12)
-
-- **Platform Partnerships** — direct integration with Swiggy, Zomato, Uber, Ola, Dunzo, and Porter for automatic rider enrollment and verified income data.
-- **IRDAI Sandbox** — apply for the Insurance Regulatory Authority's sandbox program to operate as a licensed parametric insurance product.
-- **Reinsurance Tie-ups** — partner with reinsurers (Swiss Re, Munich Re) who already have parametric insurance expertise to share the risk pool.
-- **On-Chain Audit Trail** — every trigger event, validation step, and payout logged to an immutable audit trail for regulatory transparency and dispute resolution.
-- **Employer-Sponsored Plans** — allow platforms to sponsor GigShield coverage for their top riders as a retention tool.
+| Phase | Timeline | Focus |
+|-------|----------|-------|
+| **1. Live Data** | Weeks 1–4 | OpenWeatherMap + IMD + CPCB + HERE API real-time pipelines |
+| **2. Real Payments** | Weeks 5–8 | Razorpay Route API for UPI disbursement, Aadhaar eKYC |
+| **3. ML Pipeline** | Weeks 9–12 | Sensor fusion model, graph neural network for fraud rings |
+| **4. Mobile App** | Weeks 13–20 | React Native, regional languages, community shield |
+| **5. Partnerships** | Months 6–12 | IRDAI sandbox, reinsurance tie-ups, platform integrations |
 
 ---
 
@@ -240,3 +278,5 @@ MIT
 ---
 
 *Built to protect the people who deliver through the storm — and resilient enough to stop those who pretend to.*
+
+**ARBOR — shelter and stability** 🌿

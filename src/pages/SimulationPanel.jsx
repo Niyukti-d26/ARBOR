@@ -1,244 +1,472 @@
-import { useState, useEffect } from 'react';
-import { T } from '../data/constants';
-import { getRealtimeService } from '../services/realtimeData';
+import { useState } from 'react';
+import { T, PLANS, getCurrentSeason } from '../data/constants';
+import { eventBus, EVENTS } from '../utils/eventBus';
+import { readState, writeState, addPayout, addFraudEvent, addNotification } from '../utils/cropInsuranceState';
+
+const TRIGGERS = {
+  monsoon: [
+    { id: 'rain', icon: '🌧️', label: 'Heavy Rainfall', desc: 'Rainfall exceeds 20mm', available: true },
+    { id: 'aqi', icon: '😷', label: 'AQI Emergency', desc: 'Air quality index > 200', available: true },
+    { id: 'outage', icon: '📱', label: 'Platform Outage', desc: 'App down for 30+ minutes', available: true },
+    { id: 'lockdown', icon: '🚧', label: 'Zone Lockdown', desc: 'Zone restricted by authorities', available: true },
+    { id: 'heat', icon: '🌡️', label: 'Extreme Heat', desc: 'Cannot occur during monsoon season', available: false, reason: 'Heavy rain prevents extreme heat conditions during monsoon (Jun–Sep).' },
+  ],
+  summer: [
+    { id: 'heat', icon: '🌡️', label: 'Extreme Heat', desc: 'Temperature exceeds 40°C', available: true },
+    { id: 'aqi', icon: '😷', label: 'AQI Emergency', desc: 'Air quality index > 200', available: true },
+    { id: 'outage', icon: '📱', label: 'Platform Outage', desc: 'App down for 30+ minutes', available: true },
+    { id: 'lockdown', icon: '🚧', label: 'Zone Lockdown', desc: 'Zone restricted by authorities', available: true },
+    { id: 'rain', icon: '🌧️', label: 'Heavy Rainfall', desc: 'Not typical in summer months', available: false, reason: 'Heavy rainfall is not a risk during summer (Mar–May). Use Heat triggers instead.' },
+  ],
+  other: [
+    { id: 'aqi', icon: '😷', label: 'AQI Emergency', desc: 'Air quality index > 200', available: true },
+    { id: 'outage', icon: '📱', label: 'Platform Outage', desc: 'App down for 30+ minutes', available: true },
+    { id: 'lockdown', icon: '🚧', label: 'Zone Lockdown', desc: 'Zone restricted by authorities', available: true },
+    { id: 'rain', icon: '🌧️', label: 'Heavy Rainfall', desc: 'Rainfall exceeds 20mm', available: true },
+    { id: 'heat', icon: '🌡️', label: 'Extreme Heat', desc: 'Temperature exceeds 40°C', available: true },
+  ],
+};
+
+const FRAUD_SCENARIOS = [
+  {
+    id: 'gps_spoofing',
+    icon: '🕵️',
+    label: 'GPS Spoofing',
+    desc: 'Worker location doesn\'t match claimed zone',
+    fraudLabel: 'GPS Spoofing',
+    reason: 'Worker location (Andheri, Mumbai) does not match claimed zone (Bellandur, Bengaluru). Distance: 1,392 km.',
+    fraudScore: 0.92,
+  },
+  {
+    id: 'duplicate',
+    icon: '📱',
+    label: 'Duplicate Claim',
+    desc: 'Same trigger claimed twice in 1 hour',
+    fraudLabel: 'Duplicate Claim',
+    reason: 'Same trigger (Heavy Rainfall) claimed twice within 47 minutes. Previous claim: CLM-2481.',
+    fraudScore: 0.88,
+  },
+  {
+    id: 'coordinated',
+    icon: '👥',
+    label: 'Coordinated Fraud',
+    desc: '10+ workers claim same trigger same minute',
+    fraudLabel: 'Coordinated Ring',
+    reason: '14 workers in Zone A filed identical claims within 90 seconds. Statistical anomaly: p < 0.001.',
+    fraudScore: 0.95,
+  },
+];
+
+const FRAUD_STEPS = [
+  'Claim received',
+  'AI fraud analysis running...',
+  'Cross-referencing claim patterns...',
+  '🚨 Fraud detected — ',
+  'Payment blocked automatically',
+  'Admin notified',
+];
+
+const SEASON_INFO = {
+  monsoon: { label: 'Monsoon Season', desc: 'Jun – Sep', icon: '🌧️', color: '#3B82F6', bg: '#EFF6FF' },
+  summer: { label: 'Summer Season', desc: 'Mar – May', icon: '☀️', color: '#F59E0B', bg: '#FFFBEB' },
+  other: { label: 'Winter / Post-monsoon', desc: 'Oct – Feb', icon: '🌤️', color: '#60B246', bg: '#EDF7EA' },
+};
+
+const STEPS = ['Detected', 'Verified', 'Paid'];
 
 export default function SimulationPanel({ user, onToast }) {
-  const [data, setData] = useState(null);
-  const [firing, setFiring] = useState(null);
-  const [autoClaimActive, setAutoClaimActive] = useState(false);
-  const [claimPhase, setClaimPhase] = useState(null);
-  const [upiPhase, setUpiPhase] = useState(null);
-  const svc = getRealtimeService();
+  const season = getCurrentSeason();
+  const triggers = TRIGGERS[season];
+  const seasonInfo = SEASON_INFO[season];
+  const plan = PLANS.find(p => p.id === user?.plan) || PLANS[1];
 
-  useEffect(() => {
-    svc.start();
-    setData(svc.getSnapshot());
-    const unsub = svc.subscribe(d => setData(d));
-    return unsub;
-  }, []);
+  const [selected, setSelected] = useState(null);
+  const [simulationStep, setSimulationStep] = useState(-1);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [tooltip, setTooltip] = useState(null);
 
-  const triggers = [
-    { type: 'rainfall', icon: '🌧️', label: 'Heavy Rainfall', desc: 'Simulate >50mm/hr downpour', color: T.blue },
-    { type: 'aqi',      icon: '🌫️', label: 'AQI Emergency',  desc: 'Simulate AQI >300 hazard', color: '#7C3AED' },
-    { type: 'heat',     icon: '🌡️', label: 'Extreme Heat',   desc: 'Simulate >42°C heat wave', color: T.red },
-    { type: 'platform', icon: '📵', label: 'Platform Outage', desc: 'Simulate Swiggy/Zomato down', color: T.orange },
-    { type: 'traffic',  icon: '🚧', label: 'Zone Lockdown',   desc: 'Simulate congestion >8/10', color: T.amber },
-  ];
+  // Fraud demo state
+  const [fraudRunning, setFraudRunning] = useState(false);
+  const [fraudStep, setFraudStep] = useState(-1);
+  const [activeFraud, setActiveFraud] = useState(null);
 
-  const fireTrigger = (type) => {
-    setFiring(type);
-    svc.simulateTrigger(type);
+  const handleSimulate = async () => {
+    if (!selected || running) return;
+    const trigger = triggers.find(t => t.id === selected);
+    setRunning(true);
+    setSimulationStep(0);
 
-    setTimeout(() => {
-      const snap = svc.getSnapshot();
-      const trigger = snap.triggerLog[0];
-      if (trigger) {
-        setAutoClaimActive(true);
-        setClaimPhase('evaluating');
-        const claim = svc.generateClaim(trigger, user);
+    // Emit to Claims page via event bus (existing behaviour)
+    eventBus.emit(EVENTS.TRIGGER_FIRED, {
+      type: trigger.id,
+      icon: trigger.icon,
+      label: trigger.label,
+      zone: user?.zone || 'Zone A',
+    });
 
-        // Auto-progress claim
-        const steps = ['ai_validated', 'fraud_checked', 'approved', 'upi_sent', 'confirmed'];
-        steps.forEach((_, i) => {
-          setTimeout(() => {
-            svc.progressClaim(claim.id);
-            setData(svc.getSnapshot());
-            if (i === 3) setUpiPhase('sending');
-            if (i === 4) {
-              setUpiPhase('success');
-              setClaimPhase('complete');
-              onToast?.(`🎉 ₹${claim.amount} auto-paid via UPI!`);
-              setTimeout(() => { setAutoClaimActive(false); setFiring(null); setClaimPhase(null); setUpiPhase(null); }, 4000);
-            }
-          }, (i + 1) * 1200);
-        });
-      }
-    }, 800);
+    // ── Step 1: write Detected to shared state immediately ──
+    const existingState = readState();
+    const newClaim = {
+      id: Date.now(),
+      event: trigger.label,
+      status: 'Detected',
+      amount: plan.dailyPayout,
+      farmer: user?.name || 'Ramesh Patil',
+      zone: user?.zone || 'Vidarbha',
+      timestamp: new Date().toISOString(),
+    };
+    writeState({
+      lastEvent: trigger.label,
+      droughtIndex: trigger.id === 'rain' ? 89 : existingState.droughtIndex,
+      claims: [newClaim, ...existingState.claims],
+    });
+    setSimulationStep(0);
+
+    // ── Step 2: AI Verifying after 2s ──
+    await new Promise(r => setTimeout(r, 2000));
+    setSimulationStep(1);
+    const s2 = readState();
+    writeState({
+      claims: s2.claims.map(c => c.id === newClaim.id ? { ...c, status: 'AI Verifying' } : c),
+    });
+
+    // ── Step 3: Approved after 4s ──
+    await new Promise(r => setTimeout(r, 2000));
+    setSimulationStep(2);
+    const s3 = readState();
+    writeState({
+      claims: s3.claims.map(c => c.id === newClaim.id ? { ...c, status: 'Approved' } : c),
+    });
+
+    // ── Step 4: Paid after 6s ──
+    await new Promise(r => setTimeout(r, 2000));
+    const s4 = readState();
+    writeState({
+      claims: s4.claims.map(c => c.id === newClaim.id ? { ...c, status: 'Paid' } : c),
+      totalClaimsPaid: (s4.totalClaimsPaid || 0) + 1,
+      totalAmountPaid: (s4.totalAmountPaid || 0) + newClaim.amount,
+    });
+
+    // ── Push to PayoutLedger + Notifications ──
+    addPayout({
+      worker: newClaim.farmer,
+      amount: newClaim.amount,
+      trigger: newClaim.event,
+      zone: newClaim.zone,
+    });
+    addNotification({
+      type: 'auto-paid',
+      title: `₹${newClaim.amount} paid to ${newClaim.farmer}`,
+      detail: `${newClaim.event} trigger in ${newClaim.zone} · Auto-approved by AI · fraudScore: 0.08`,
+      worker: newClaim.farmer,
+      amount: newClaim.amount,
+    });
+    // Also emit legacy event bus event for backwards compat
+    eventBus.emit(EVENTS.CLAIM_AUTO_APPROVED, {
+      worker: newClaim.farmer,
+      amount: newClaim.amount,
+      trigger: newClaim.event,
+      zone: newClaim.zone,
+      fraudScore: 0.08,
+    });
+
+    setShowConfetti(true);
+    onToast(`⚡ ₹${newClaim.amount} auto-paid — ${trigger.label} approved!`);
+    setRunning(false);
+    setTimeout(() => setShowConfetti(false), 3000);
   };
 
-  if (!data) return null;
+  const handleReset = () => {
+    setSelected(null);
+    setSimulationStep(-1);
+    setShowConfetti(false);
+    setRunning(false);
+  };
 
-  const activeClaim = data.claimsQueue[0];
+  const handleFraudSimulate = async (scenario) => {
+    if (fraudRunning) return;
+    setActiveFraud(scenario);
+    setFraudRunning(true);
+    setFraudStep(0);
+
+    // Steps 0-2: detection phases
+    for (let i = 0; i <= 2; i++) {
+      setFraudStep(i);
+      await new Promise(r => setTimeout(r, 900));
+    }
+
+    // Step 3: fraud found
+    setFraudStep(3);
+    await new Promise(r => setTimeout(r, 1000));
+
+    // Steps 4-5: block + notify
+    setFraudStep(4);
+    await new Promise(r => setTimeout(r, 800));
+    setFraudStep(5);
+
+    // ── Write fraud to shared state → FraudAlerts + AdminDashboard ──
+    addFraudEvent({
+      worker: user?.name || 'Unknown Worker',
+      reason: scenario.reason,
+      fraudScore: scenario.fraudScore,
+      fraudLabel: scenario.fraudLabel,
+      zone: user?.zone || 'Bellandur',
+    });
+    addNotification({
+      type: 'fraud',
+      title: `Claim REJECTED — ${user?.name || 'Worker'}`,
+      detail: `${scenario.reason} · ${scenario.fraudLabel} detected · Payment blocked`,
+      worker: user?.name,
+      fraudScore: scenario.fraudScore,
+    });
+
+    // Legacy event bus (keeps notifications page in sync too)
+    eventBus.emit(EVENTS.FRAUD_DETECTED, {
+      worker: user?.name,
+      reason: scenario.reason,
+      fraudScore: scenario.fraudScore,
+      fraudLabel: scenario.fraudLabel,
+    });
+    eventBus.emit(EVENTS.CLAIM_AUTO_REJECTED, {
+      worker: user?.name,
+      reason: scenario.reason,
+      fraudScore: scenario.fraudScore,
+    });
+
+    onToast(`🚨 ${scenario.fraudLabel} detected — Admin FraudAlerts updated instantly!`);
+    setFraudRunning(false);
+  };
+
+  const handleFraudReset = () => {
+    setFraudRunning(false);
+    setFraudStep(-1);
+    setActiveFraud(null);
+  };
 
   return (
-    <div className="page-section">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+    <div className="page-section fade-up">
+      {/* Season Banner */}
+      <div style={{ background: seasonInfo.bg, border: `1px solid ${seasonInfo.color}22`, borderRadius: 12, padding: '14px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 28 }}>{seasonInfo.icon}</span>
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 4 }}>
-            ⚡ Simulation Panel
-          </h2>
-          <p style={{ fontSize: 13, color: T.textSec }}>
-            Fire triggers to test the end-to-end claim pipeline
-          </p>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{seasonInfo.label}</div>
+          <div style={{ fontSize: 12, color: T.textSec }}>{seasonInfo.desc} · Some triggers are disabled based on current season</div>
         </div>
-        <span style={{
-          padding: '6px 14px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-          background: T.redLight, color: T.red, border: `1px solid ${T.red}20`
-        }}>DEMO MODE</span>
       </div>
 
-      {/* Trigger Buttons */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 }}>
-        {triggers.map((t, i) => (
-          <button key={i} onClick={() => !firing && fireTrigger(t.type)} disabled={!!firing}
-            className="card fade-up" style={{
-              padding: 20, textAlign: 'center', cursor: firing ? 'not-allowed' : 'pointer',
-              border: firing === t.type ? `2px solid ${t.color}` : `1px solid ${T.border}`,
-              boxShadow: firing === t.type ? `0 0 20px ${t.color}20` : T.shadow,
-              opacity: firing && firing !== t.type ? 0.5 : 1,
-              animationDelay: `${i * 60}ms`, transition: 'all .3s',
-              background: firing === t.type ? `${t.color}08` : 'white'
-            }}>
-            <div style={{ fontSize: 36, marginBottom: 10 }}>{t.icon}</div>
-            <p style={{ fontSize: 13, fontWeight: 700, color: firing === t.type ? t.color : T.text }}>{t.label}</p>
-            <p style={{ fontSize: 11, color: T.textMuted, marginTop: 4 }}>{t.desc}</p>
-            {firing === t.type && (
-              <div style={{ marginTop: 10 }}>
-                <div className="risk-pulse" style={{ background: t.color }} />
-                <span style={{ fontSize: 10, color: t.color, fontWeight: 700, marginLeft: 6 }}>FIRING</span>
-              </div>
-            )}
-          </button>
-        ))}
+      {/* ── Normal Trigger Section ── */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: T.text, marginBottom: 4 }}>Fire Disruption Trigger</div>
+        <div style={{ fontSize: 13, color: T.textSec }}>Select a trigger — Claims page updates instantly via Socket.io</div>
       </div>
 
-      {/* Auto-Claim Flow */}
-      {autoClaimActive && activeClaim && (
-        <div className="card pop-in" style={{ padding: 24, marginBottom: 24, border: `2px solid ${T.orange}30` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-            <div className="risk-pulse" style={{ background: T.orange }} />
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: T.orange }}>Auto-Claim Pipeline</h3>
-            <span style={{
-              marginLeft: 'auto', padding: '4px 12px', borderRadius: 20,
-              background: T.greenLight, color: T.green,
-              fontSize: 10, fontWeight: 700, border: `1px solid ${T.green}20`
-            }}>ZERO-TOUCH</span>
-          </div>
-
-          {/* Claim Steps */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
-            {activeClaim.steps.map((s, i) => {
-              const labels = ['Triggered', 'AI Validated', 'Fraud Check', 'Approved', 'UPI Sent', 'Confirmed'];
-              const icons = ['🌧️', '🤖', '🔍', '✅', '💸', '🎉'];
-              return (
-                <div key={i} style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{
-                    height: 36, borderRadius: 8, marginBottom: 6,
-                    background: s.done ? T.greenLight : T.bg,
-                    border: `1px solid ${s.done ? T.green + '30' : T.border}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-                    transition: 'all .5s'
-                  }}>{s.done ? icons[i] : '⏳'}</div>
-                  <p style={{ fontSize: 9, fontWeight: 600, color: s.done ? T.green : T.textMuted }}>
-                    {labels[i]}
-                  </p>
-                  {s.time && <p style={{ fontSize: 8, color: T.textMuted }}>{s.time}</p>}
+      {simulationStep === -1 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+          {triggers.map(trigger => (
+            <div key={trigger.id} style={{ position: 'relative' }}>
+              <div
+                onClick={() => trigger.available && setSelected(trigger.id)}
+                onMouseEnter={() => !trigger.available && setTooltip(trigger.id)}
+                onMouseLeave={() => setTooltip(null)}
+                style={{
+                  background: T.white, border: `1.5px solid`,
+                  borderColor: selected === trigger.id ? T.primary : T.border,
+                  borderRadius: 10, padding: '14px 16px', cursor: trigger.available ? 'pointer' : 'not-allowed',
+                  opacity: trigger.available ? 1 : 0.5, transition: 'all .15s',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                }}>
+                <span style={{ fontSize: 24 }}>{trigger.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: trigger.available ? T.text : T.textMuted }}>
+                    {trigger.label}
+                    {!trigger.available && <span style={{ fontSize: 11, marginLeft: 6, color: T.textMuted }}>⊘ Disabled</span>}
+                  </div>
+                  <div style={{ fontSize: 12, color: T.textMuted }}>{trigger.desc}</div>
                 </div>
-              );
-            })}
+                {selected === trigger.id && (
+                  <div style={{ width: 20, height: 20, borderRadius: '50%', background: T.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 11 }}>✓</div>
+                )}
+              </div>
+              {tooltip === trigger.id && !trigger.available && (
+                <div style={{
+                  position: 'absolute', bottom: '110%', left: '50%', transform: 'translateX(-50%)',
+                  background: T.text, color: 'white', fontSize: 11, fontWeight: 500,
+                  padding: '8px 12px', borderRadius: 8, whiteSpace: 'nowrap', zIndex: 10,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                }}>{trigger.reason}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {simulationStep >= 0 && (
+        <div className="fade-up" style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 12, padding: 20, marginBottom: 20 }}>
+          <div style={{ fontSize: 13, color: T.textSec, marginBottom: 4 }}>Simulating trigger for</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 16 }}>
+            {triggers.find(t => t.id === selected)?.icon} {triggers.find(t => t.id === selected)?.label}
           </div>
-
-          {/* UPI Animation */}
-          {upiPhase === 'sending' && (
-            <div className="fade-up" style={{ textAlign: 'center', padding: '20px 0' }}>
-              <div className="upi-money-flow" style={{ height: 60, marginBottom: 12 }}>
-                <div className="money-particle" style={{ animationDelay: '0s' }}>₹</div>
-                <div className="money-particle" style={{ animationDelay: '0.2s' }}>₹</div>
-                <div className="money-particle" style={{ animationDelay: '0.4s' }}>₹</div>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20 }}>
+            {STEPS.map((step, i) => (
+              <div key={step} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: '50%', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', fontSize: 18, transition: 'all .4s',
+                    border: `2px solid ${i < simulationStep ? T.success : i === simulationStep ? T.primary : T.border}`,
+                    background: i < simulationStep ? T.success : i === simulationStep ? T.primary : '#FAFAFA',
+                    color: i <= simulationStep ? 'white' : T.textMuted,
+                    animation: i === simulationStep && running ? 'stepPulse 1.5s infinite' : 'none',
+                  }}>
+                    {i < simulationStep ? '✓' : i === 0 ? '📡' : i === 1 ? '🔍' : '💸'}
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: i <= simulationStep ? T.text : T.textMuted }}>{step}</div>
+                </div>
+                {i < STEPS.length - 1 && (
+                  <div style={{ flex: 1, height: 2, background: i < simulationStep ? T.success : T.border, transition: 'background .6s', margin: '0 4px', marginBottom: 18 }} />
+                )}
               </div>
-              <p style={{ fontSize: 18, fontWeight: 800, color: T.orange }}>Sending ₹{activeClaim.amount} via UPI</p>
-              <div className="upi-progress-bar" style={{ marginTop: 12, maxWidth: 300, margin: '12px auto 0' }}>
-                <div className="upi-progress-fill sending" />
-              </div>
-            </div>
-          )}
-
-          {upiPhase === 'success' && (
-            <div className="pop-in" style={{ textAlign: 'center', padding: '20px 0' }}>
-              <svg width="60" height="60" viewBox="0 0 60 60" style={{ marginBottom: 12 }}>
-                <circle cx="30" cy="30" r="27" fill={T.greenLight} stroke={T.green} strokeWidth="3" />
-                <path d="M18 32 L26 40 L42 24" fill="none" stroke={T.green} strokeWidth="3.5"
-                  strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <p style={{ fontSize: 24, fontWeight: 800, color: T.green }}>₹{activeClaim.amount} Received!</p>
-              <p style={{ fontSize: 12, color: T.textSec, marginTop: 4 }}>Auto-paid in {Math.floor(Math.random() * 30 + 40)}s · Zero touch</p>
-              <div style={{
-                marginTop: 12, padding: '8px 16px', borderRadius: 10,
-                background: T.greenLight, display: 'inline-flex', alignItems: 'center', gap: 6,
-                border: `1px solid ${T.green}20`, fontSize: 11, fontWeight: 600, color: T.green
-              }}>🏦 Txn: {activeClaim.id}</div>
-            </div>
-          )}
-
-          {!upiPhase && (
-            <div style={{
-              padding: '14px 18px', borderRadius: 12, background: T.bg,
-              border: `1px solid ${T.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-            }}>
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 600 }}>{activeClaim.trigger}</p>
-                <p style={{ fontSize: 11, color: T.textMuted }}>AI Score: {activeClaim.aiScore}% · {activeClaim.zone}</p>
-              </div>
-              <p style={{ fontSize: 20, fontWeight: 800, color: T.green }}>₹{activeClaim.amount}</p>
+            ))}
+          </div>
+          {simulationStep === 2 && !running && (
+            <div className="fade-up" style={{ textAlign: 'center', paddingTop: 16, borderTop: `1px solid ${T.border}`, position: 'relative' }}>
+              {showConfetti && (
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <div className="confetti-piece" /><div className="confetti-piece" />
+                  <div className="confetti-piece" /><div className="confetti-piece" />
+                  <div className="confetti-piece" /><div className="confetti-piece" />
+                </div>
+              )}
+              <div style={{ fontSize: 40, marginBottom: 8 }}>⚡</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: T.primary }}>Trigger Fired Successfully</div>
+              <div style={{ fontSize: 13, color: T.textSec, marginBottom: 4 }}>Claims page will show disruption banner</div>
+              <div style={{ fontSize: 11, color: T.textMuted }}>Worker can now claim ₹{plan.dailyPayout}</div>
             </div>
           )}
         </div>
       )}
 
-      {/* Live Data Feed */}
-      <div className="two-col">
-        <div className="card" style={{ padding: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
-            <div className="pulse-dot" style={{ background: T.red, width: 5, height: 5 }} />
-            <h3 style={{ fontSize: 15, fontWeight: 700 }}>Live Data Feed</h3>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {[
-              { label: 'Rainfall', value: `${data.weather.rainfall} mm/hr`, icon: '🌧️', threshold: 50 },
-              { label: 'AQI', value: data.aqi.aqi.toString(), icon: '💨', threshold: 300 },
-              { label: 'Heat Index', value: `${data.weather.heatIndex}°C`, icon: '🌡️', threshold: 46 },
-              { label: 'Traffic', value: `${data.traffic.congestion}/10`, icon: '🚗', threshold: 8 },
-              { label: 'Wind', value: `${data.weather.windSpeed} km/h`, icon: '💨', threshold: 40 },
-              { label: 'Humidity', value: `${data.weather.humidity}%`, icon: '💧', threshold: 90 },
-            ].map((item, i) => (
-              <div key={i} style={{
-                padding: '10px 12px', background: T.bg, borderRadius: 10,
-                border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 8
-              }}>
-                <span style={{ fontSize: 18 }}>{item.icon}</span>
-                <div>
-                  <p style={{ fontSize: 14, fontWeight: 700 }}>{item.value}</p>
-                  <p style={{ fontSize: 10, color: T.textMuted }}>{item.label}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 28 }}>
+        {simulationStep === -1 ? (
+          <button className="btn-primary" onClick={handleSimulate} disabled={!selected || running}>
+            {running ? 'Firing trigger...' : selected ? `⚡ Fire ${triggers.find(t => t.id === selected)?.label} Trigger` : 'Select a trigger above'}
+          </button>
+        ) : (
+          <button className="btn-outline" onClick={handleReset} style={{ flex: 1 }}>
+            ← Try another trigger
+          </button>
+        )}
+      </div>
 
-        <div className="card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>📋 Trigger Log</h3>
-          <div style={{ maxHeight: 220, overflowY: 'auto' }}>
-            {data.triggerLog.length === 0 ? (
-              <p style={{ fontSize: 13, color: T.textMuted, textAlign: 'center', padding: 20 }}>
-                No triggers fired yet. Press a button above to start!
-              </p>
-            ) : data.triggerLog.slice(0, 10).map((t, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
-                borderBottom: `1px solid ${T.border}`, fontSize: 12
-              }}>
-                <span style={{ fontSize: 14 }}>{t.icon}</span>
-                <span style={{ flex: 1 }}>{t.title}</span>
-                <span style={{ fontSize: 10, color: T.textMuted, fontFamily: 'monospace' }}>{t.time}</span>
-                <span style={{
-                  padding: '2px 8px', borderRadius: 6, fontSize: 9, fontWeight: 700,
-                  background: t.severity === 'critical' ? T.redLight : T.amberLight,
-                  color: t.severity === 'critical' ? T.red : T.amber
-                }}>{t.severity?.toUpperCase()}</span>
+      {/* ── Divider ── */}
+      <div style={{ height: 1, background: T.border, marginBottom: 24 }} />
+
+      {/* ── Fraud Detection Demo ── */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: T.text, marginBottom: 4 }}>🔍 Simulate Fraud</div>
+        <div style={{ fontSize: 13, color: T.textSec }}>Watch AI detect and block fraudulent claims in real time</div>
+      </div>
+
+      {/* Fraud scenario buttons */}
+      {fraudStep === -1 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+          {FRAUD_SCENARIOS.map(scenario => (
+            <div key={scenario.id}
+              onClick={() => !fraudRunning && handleFraudSimulate(scenario)}
+              style={{
+                background: '#FFF5F0', border: '1.5px solid #FFD5C2', borderRadius: 10,
+                padding: '14px 16px', cursor: fraudRunning ? 'not-allowed' : 'pointer',
+                opacity: fraudRunning ? 0.6 : 1, transition: 'all .15s',
+                display: 'flex', alignItems: 'center', gap: 12,
+              }}
+            >
+              <span style={{ fontSize: 28 }}>{scenario.icon}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{scenario.label}</div>
+                <div style={{ fontSize: 12, color: T.textSec }}>{scenario.desc}</div>
               </div>
-            ))}
-          </div>
+              <div style={{
+                fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4,
+                background: '#FEF0F1', color: '#E23744', border: '1px solid #FBBBBC',
+              }}>Fraud Demo</div>
+            </div>
+          ))}
         </div>
+      )}
+
+      {/* Fraud AI reaction panel */}
+      {fraudStep >= 0 && (
+        <div className="fade-up" style={{
+          background: T.white, border: `1px solid ${T.border}`, borderRadius: 12, padding: 20, marginBottom: 20,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <span style={{ fontSize: 24 }}>{activeFraud?.icon}</span>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>Simulating: {activeFraud?.label}</div>
+              <div style={{ fontSize: 12, color: T.textSec }}>Real-time AI reaction</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {FRAUD_STEPS.map((step, i) => {
+              const label = i === 3 ? `🚨 Fraud detected — ${activeFraud?.fraudLabel}` : step;
+              const isDone = i < fraudStep;
+              const isActive = i === fraudStep;
+              const isFuture = i > fraudStep;
+              const isBlocked = i === 4;
+              const isNotify = i === 5;
+              return (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 12px', borderRadius: 8,
+                  background: isDone
+                    ? (isBlocked ? '#FEF0F1' : isNotify ? '#EFF6FF' : i === 3 ? '#FEF0F1' : '#EDF7EA')
+                    : isActive ? '#FFFBEB' : T.bg,
+                  border: `1px solid ${isDone ? (isBlocked ? '#FBBBBC' : isNotify ? '#BFDBFE' : i === 3 ? '#FBBBBC' : '#B7DFB0') : isActive ? '#FCD34D' : T.border}`,
+                  opacity: isFuture ? 0.35 : 1,
+                  transition: 'all .4s',
+                }}>
+                  <div style={{ width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {isDone ? (
+                      <span style={{ fontSize: 13, color: isBlocked || i === 3 ? '#E23744' : isNotify ? '#3B82F6' : T.success }}>
+                        {isBlocked ? '🛑' : isNotify ? '📣' : i === 3 ? '🚨' : '✓'}
+                      </span>
+                    ) : isActive ? (
+                      <div style={{ width: 12, height: 12, border: '2px solid #F59E0B', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin .6s linear infinite' }} />
+                    ) : (
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: T.border }} />
+                    )}
+                  </div>
+                  <span style={{
+                    fontSize: 13, fontWeight: isDone ? 600 : 500,
+                    color: isDone ? (isBlocked || i === 3 ? '#E23744' : isNotify ? '#1D4ED8' : T.text) : isActive ? '#92400E' : T.textMuted,
+                  }}>{label}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {fraudStep >= 5 && !fraudRunning && (
+            <div className="fade-up" style={{ marginTop: 16, padding: '12px 14px', background: '#FEF0F1', borderRadius: 8, border: '1px solid #FBBBBC', textAlign: 'center' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#E23744', marginBottom: 4 }}>
+                🚨 Fraud Score: {Math.round(activeFraud?.fraudScore * 100)}% — Payment blocked
+              </div>
+              <div style={{ fontSize: 12, color: '#991B1B', marginBottom: 10 }}>{activeFraud?.reason}</div>
+              <div style={{ fontSize: 11, color: '#E23744', marginBottom: 12 }}>Admin notification sent via Socket.io ✓</div>
+              <button onClick={handleFraudReset} style={{
+                padding: '7px 16px', borderRadius: 7, border: `1px solid ${T.border}`,
+                background: 'none', color: T.textSec, fontSize: 12, cursor: 'pointer',
+                fontFamily: 'Inter, sans-serif',
+              }}>Try another fraud scenario</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Info */}
+      <div style={{ marginTop: 8, padding: '12px 14px', background: T.bg, borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 12, color: T.textSec, lineHeight: 1.5 }}>
+        💡 In real deployment, claims are detected automatically from satellite weather data and platform APIs — workers never need to file claims manually.
       </div>
     </div>
   );

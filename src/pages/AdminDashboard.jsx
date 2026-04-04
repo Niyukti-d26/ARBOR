@@ -1,254 +1,373 @@
-import { useState, useEffect } from 'react';
-import { T, PLANS } from '../data/constants';
-import { getRealtimeService } from '../services/realtimeData';
+import { useState, useEffect, useRef } from 'react';
+import { T, MOCK_FRAUD_ALERTS, MOCK_WORKERS, ML_MODELS } from '../data/constants';
+import { readState, EVENT_NAME } from '../utils/cropInsuranceState';
+import { eventBus, EVENTS } from '../utils/eventBus';
+
+const PLATFORM_HEALTH = [
+  { name: 'Swiggy', uptime: 99.4, status: 'operational' },
+  { name: 'Zomato', uptime: 99.1, status: 'operational' },
+  { name: 'Uber', uptime: 99.6, status: 'operational' },
+  { name: 'Ola', uptime: 97.3, status: 'degraded' },
+];
+
+const ZONE_PREDICTIONS = [
+  { zone: 'Vidarbha', risk: 'High', reason: 'Drought Index: 72% — above threshold', color: '#E23744', bg: '#FEF0F1' },
+  { zone: 'Bellandur, Bengaluru', risk: 'High', reason: 'Rain forecast >25mm', color: '#E23744', bg: '#FEF0F1' },
+  { zone: 'Velachery, Chennai', risk: 'High', reason: 'AQI expected >220', color: '#E23744', bg: '#FEF0F1' },
+  { zone: 'Kurla, Mumbai', risk: 'Medium', reason: 'Platform stress expected', color: '#F59E0B', bg: '#FFFBEB' },
+  { zone: 'Hadapsar, Pune', risk: 'Low', reason: 'Clear conditions forecast', color: '#60B246', bg: '#EDF7EA' },
+];
+
+// Status badge config for claims
+const STATUS_BADGE = {
+  'Detected':     { color: '#E23744', bg: '#FEF0F1', label: 'Detected' },
+  'AI Verifying': { color: '#F59E0B', bg: '#FFFBEB', label: 'AI Verifying' },
+  'Approved':     { color: '#3B82F6', bg: '#EFF6FF', label: 'Approved' },
+  'Paid':         { color: '#60B246', bg: '#EDF7EA', label: 'Paid' },
+  'pending':      { color: '#E23744', bg: '#FEF0F1', label: 'Pending' },
+  'approved':     { color: '#60B246', bg: '#EDF7EA', label: 'Approved' },
+  'rejected':     { color: '#6B7280', bg: '#F3F4F6', label: 'Rejected' },
+};
+
+function StatusBadge({ status }) {
+  const cfg = STATUS_BADGE[status] || STATUS_BADGE['pending'];
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 5,
+      background: cfg.bg, color: cfg.color,
+    }}>{cfg.label}</span>
+  );
+}
+
+// Event alert banner
+function EventAlertBanner({ event, onDismiss }) {
+  if (!event) return null;
+  return (
+    <div className="fade-up" style={{
+      background: 'linear-gradient(135deg, #FFF8C5, #FFF3CD)',
+      border: '1.5px solid #F59E0B', borderRadius: 10,
+      padding: '12px 18px', marginBottom: 20,
+      display: 'flex', alignItems: 'center', gap: 12,
+    }}>
+      <div style={{ fontSize: 24 }}>⚠️</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E' }}>
+          Event Alert — {event} detected in Vidarbha
+        </div>
+        <div style={{ fontSize: 12, color: '#78350F' }}>
+          1 claim triggered — ₹2,400 processing via AI pipeline
+        </div>
+      </div>
+      <button onClick={onDismiss} style={{
+        background: 'none', border: 'none', cursor: 'pointer', fontSize: 18,
+        color: '#92400E', fontFamily: 'Inter, sans-serif', padding: '0 4px',
+      }}>✕</button>
+    </div>
+  );
+}
 
 export default function AdminDashboard({ onNavigate, onToast }) {
-  const [data, setData] = useState(null);
-  const svc = getRealtimeService();
+  // ── Shared state: from cropInsuranceState ──
+  const [totalClaimsPaid, setTotalClaimsPaid] = useState(0);
+  const [totalAmountPaid, setTotalAmountPaid] = useState(0);
+  const [liveClaims, setLiveClaims]           = useState([]);
+  const [liveFraudAlerts, setLiveFraudAlerts] = useState([]);
+  const [vidarbhaRisk, setVidarbhaRisk]       = useState('HIGH');
+  const [vidarbhaPremium, setVidarbhaPremium] = useState(100);
+  const [alertEvent, setAlertEvent]           = useState(null);
+  const alertTimerRef = useRef(null);
+  const lastEventRef  = useRef(null);
 
+  // ── Listen for cropStateUpdated ──
   useEffect(() => {
-    svc.start();
-    setData(svc.getSnapshot());
-    const unsub = svc.subscribe(d => setData(d));
-    return unsub;
+    const handler = () => {
+      const state = readState();
+      setTotalClaimsPaid(state.totalClaimsPaid ?? 0);
+      setTotalAmountPaid(state.totalAmountPaid ?? 0);
+      setLiveClaims(Array.isArray(state.claims) ? state.claims : []);
+      setLiveFraudAlerts(Array.isArray(state.fraudEvents) ? state.fraudEvents : []);
+      setVidarbhaRisk(state.zoneRisk ?? 'HIGH');
+      setVidarbhaPremium(state.currentPremium ?? 100);
+
+      // Show banner when lastEvent changes
+      if (state.lastEvent && state.lastEvent !== lastEventRef.current) {
+        lastEventRef.current = state.lastEvent;
+        setAlertEvent(state.lastEvent);
+        clearTimeout(alertTimerRef.current);
+        alertTimerRef.current = setTimeout(() => setAlertEvent(null), 8000);
+      }
+    };
+    handler();
+    window.addEventListener(EVENT_NAME, handler);
+    return () => {
+      window.removeEventListener(EVENT_NAME, handler);
+      clearTimeout(alertTimerRef.current);
+    };
   }, []);
 
-  if (!data) return null;
+  const allFraudAlerts = [...liveFraudAlerts, ...MOCK_FRAUD_ALERTS];
 
-  const { weather, aqi, traffic, platforms, triggerLog, claimsQueue, payoutLedger, workers } = data;
-  const activeWorkers = workers.filter(w => w.status === 'active').length;
-  const totalPremiums = workers.reduce((sum, w) => sum + (PLANS.find(p => p.id === w.plan)?.price || 80), 0);
-  const totalPayouts = payoutLedger.reduce((sum, p) => sum + p.amount, 0);
-  const pendingClaims = claimsQueue.filter(c => c.status === 'pending').length;
-  const fraudAlerts = workers.filter(w => w.trustScore < 45).length;
-
-  const fireCityTrigger = (type) => {
-    svc.simulateTrigger(type);
-    // Generate claims for affected workers
-    const trigger = data.triggerLog[0] || { title: type, type };
-    const affected = workers.slice(0, Math.floor(3 + Math.random() * 5));
-    affected.forEach(w => svc.generateClaim(trigger, w));
-    setData(svc.getSnapshot());
-    onToast?.(`⚡ ${type} triggered — ${affected.length} workers affected!`);
-  };
+  // Dynamic stats
+  const STATS = [
+    { label: 'Active Workers',      value: '52,841',           icon: '👥', color: T?.primary || '#FF5200', change: '+124 today' },
+    { label: 'Premiums Collected',  value: '₹41.2L',           icon: '💰', color: '#60B246',            change: '+₹3.8L today' },
+    { label: 'Claims Paid (Live)',  value: totalClaimsPaid,    icon: '💸', color: '#F59E0B',            change: `₹${totalAmountPaid.toLocaleString('en-IN')} disbursed` },
+    { label: 'Fraud Blocked',       value: allFraudAlerts.length, icon: '🚨', color: '#E23744',         change: `${liveFraudAlerts.length} live alerts` },
+  ];
 
   return (
-    <div className="page-section">
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-        <div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 4 }}>
-            Admin Dashboard
-          </h2>
-          <p style={{ fontSize: 13, color: T.textSec }}>Real-time platform monitoring and management</p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div className="pulse-dot" style={{ background: T.green }} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: T.green }}>ALL SYSTEMS LIVE</span>
-        </div>
-      </div>
+    <div style={{ padding: '24px 28px', animation: 'fadeUp .35s ease both' }}>
 
-      {/* Stats */}
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(5,1fr)', marginBottom: 20 }}>
-        {[
-          { label: 'Active Workers', value: activeWorkers.toString(), icon: '👥', color: T.blue },
-          { label: 'Premiums/wk', value: `₹${(totalPremiums / 1000).toFixed(0)}K`, icon: '💰', color: T.green },
-          { label: 'Payouts Today', value: `₹${totalPayouts.toLocaleString()}`, icon: '💸', color: T.orange },
-          { label: 'Pending Claims', value: pendingClaims.toString(), icon: '📋', color: T.amber, badge: pendingClaims > 0 },
-          { label: 'Fraud Alerts', value: fraudAlerts.toString(), icon: '🚨', color: T.red, badge: fraudAlerts > 0 },
-        ].map((s, i) => (
-          <div key={i} className="stat-card fade-up" style={{ textAlign: 'center', animationDelay: `${i * 50}ms` }}>
-            <p style={{ fontSize: 22, marginBottom: 6 }}>{s.icon}</p>
-            <p style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</p>
-            <p style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, marginTop: 3 }}>{s.label}</p>
-            {s.badge && <div style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, margin: '6px auto 0', animation: 'pulse 1.5s infinite' }} />}
+      {/* ── Event Alert Banner ── */}
+      <EventAlertBanner event={alertEvent} onDismiss={() => setAlertEvent(null)} />
+
+      {/* Stats Grid */}
+      <div className="stats-grid" style={{ marginBottom: 24 }}>
+        {STATS.map(stat => (
+          <div key={stat.label} className="stat-card">
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ fontSize: 22 }}>{stat.icon}</div>
+            </div>
+            <div className="stat-number" style={{ color: stat.color }}>{stat.value}</div>
+            <div className="stat-label" style={{ marginTop: 4, marginBottom: 4 }}>{stat.label}</div>
+            <div style={{ fontSize: 11, color: '#60B246', fontWeight: 600 }}>↑ {stat.change}</div>
           </div>
         ))}
       </div>
 
-      {/* Platform Health */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-        {platforms.map((p, i) => (
-          <div key={i} style={{
-            flex: 1, padding: '14px 16px', borderRadius: 12,
-            background: p.status === 'operational' ? T.greenLight : p.status === 'degraded' ? T.amberLight : T.redLight,
-            border: `1px solid ${p.statusColor}30`, display: 'flex', alignItems: 'center', gap: 10
-          }}>
-            <div className="risk-pulse" style={{ background: p.statusColor, width: 8, height: 8 }} />
-            <div style={{ flex: 1 }}>
-              <p style={{ fontSize: 14, fontWeight: 700 }}>{p.name}</p>
-              <p style={{ fontSize: 11, color: T.textMuted }}>
-                {p.status === 'operational' ? `${p.orderVolume} orders · ↑${p.uptime}%` : `Down since ${p.downSince}`}
-              </p>
+      {/* ── Live Claims from Simulator (cropInsuranceState) ── */}
+      {liveClaims.length > 0 && (
+        <div className="card" style={{ padding: 0, marginBottom: 24, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>Live Claims — Real-time</div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600,
+              color: '#60B246', background: '#EDF7EA', padding: '3px 10px', borderRadius: 5,
+            }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#60B246', animation: 'pulse 2s infinite' }} />
+              Live
             </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: p.statusColor }}>{p.status.toUpperCase()}</span>
           </div>
-        ))}
-      </div>
-
-      <div className="main-side">
-        {/* Left */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Live Trigger Feed */}
-          <div className="card" style={{ padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div className="pulse-dot" style={{ background: T.red, width: 5, height: 5 }} />
-                <h3 style={{ fontSize: 15, fontWeight: 700 }}>Live Trigger Monitor</h3>
-              </div>
-              <span style={{ fontSize: 11, color: T.textMuted }}>{triggerLog.length} events</span>
-            </div>
-            <div style={{ maxHeight: 220, overflowY: 'auto' }}>
-              {triggerLog.length === 0 ? (
-                <p style={{ fontSize: 13, color: T.textMuted, textAlign: 'center', padding: 24 }}>
-                  No triggers yet. Use simulation panel below.
-                </p>
-              ) : triggerLog.slice(0, 12).map((t, i) => (
-                <div key={i} className="fade-in" style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                  borderBottom: `1px solid ${T.border}`, fontSize: 12
-                }}>
-                  <span style={{ fontSize: 16 }}>{t.icon}</span>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontWeight: 600 }}>{t.title}</p>
-                    <p style={{ fontSize: 10, color: T.textMuted }}>{t.value} · {t.time}</p>
-                  </div>
-                  <span style={{
-                    padding: '2px 8px', borderRadius: 6, fontSize: 9, fontWeight: 700,
-                    background: t.severity === 'critical' ? T.redLight : T.amberLight,
-                    color: t.severity === 'critical' ? T.red : T.amber
-                  }}>{(t.severity || 'info').toUpperCase()}</span>
-                </div>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Farmer</th>
+                <th>Zone</th>
+                <th>Event</th>
+                <th>Amount</th>
+                <th>Time</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {liveClaims.map(claim => (
+                <tr key={claim.id}>
+                  <td style={{ fontWeight: 600, fontSize: 13 }}>{claim.farmer}</td>
+                  <td style={{ fontSize: 12, color: T.textSec }}>{claim.zone}</td>
+                  <td style={{ fontSize: 13 }}>{claim.event}</td>
+                  <td style={{ fontSize: 14, fontWeight: 700 }}>₹{claim.amount}</td>
+                  <td style={{ fontSize: 11, color: T.textMuted }}>
+                    {new Date(claim.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </td>
+                  <td><StatusBadge status={claim.status} /></td>
+                </tr>
               ))}
-            </div>
-          </div>
+            </tbody>
+          </table>
+        </div>
+      )}
 
-          {/* Claims Queue */}
-          <div className="card" style={{ padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700 }}>📋 Claims Queue</h3>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: T.amberLight, color: T.amber }}>
-                  {pendingClaims} pending
-                </span>
-                <span style={{ cursor: 'pointer', fontSize: 12, color: T.orange, fontWeight: 600 }}
-                  onClick={() => onNavigate('claimsQueue')}>View All →</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+        {/* Platform Health */}
+        <div className="card" style={{ padding: 20 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 16 }}>Platform Health</div>
+          {PLATFORM_HEALTH.map(p => (
+            <div key={p.name} style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 8, background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, marginRight: 10, flexShrink: 0 }}>
+                {p.name === 'Swiggy' ? '🔴' : p.name === 'Zomato' ? '🍕' : p.name === 'Uber' ? '🚗' : '🟡'}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{p.name}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: p.status === 'operational' ? '#60B246' : '#F59E0B' }}>{p.uptime}%</span>
+                </div>
+                <div style={{ height: 4, background: T.border, borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${p.uptime}%`, background: p.status === 'operational' ? '#60B246' : '#F59E0B', borderRadius: 2 }} />
+                </div>
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {claimsQueue.slice(0, 5).map((c, i) => {
-                const statusColor = c.status === 'paid' ? T.green : c.status === 'rejected' ? T.red : T.amber;
+          ))}
+        </div>
+
+        {/* Fraud Alert Summary */}
+        <div className="card" style={{ padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>Fraud Alerts</div>
+            <div style={{ background: '#FEF0F1', color: '#E23744', fontSize: 20, fontWeight: 800, padding: '4px 14px', borderRadius: 8 }}>
+              {MOCK_FRAUD_ALERTS.length}
+            </div>
+          </div>
+          {MOCK_FRAUD_ALERTS.slice(0, 3).map(alert => (
+            <div key={alert.id} style={{ display: 'flex', gap: 10, marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${T.border}`, alignItems: 'flex-start' }}>
+              <div style={{
+                width: 8, height: 8, borderRadius: '50%', marginTop: 4, flexShrink: 0,
+                background: alert.level === 'high' ? '#E23744' : alert.level === 'medium' ? '#F59E0B' : '#60B246',
+              }} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{alert.worker}</div>
+                <div style={{ fontSize: 11, color: T.textMuted }}>{alert.reason.slice(0, 52)}...</div>
+              </div>
+            </div>
+          ))}
+          <button onClick={() => onNavigate('fraud')} style={{ fontSize: 12, fontWeight: 600, color: T.primary, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: 0 }}>
+            View all alerts →
+          </button>
+        </div>
+      </div>
+
+      {/* ── Vidarbha Zone Pricing (live) ── */}
+      <div className="card" style={{ padding: 20, marginBottom: 24, border: `1px solid ${vidarbhaRisk === 'HIGH' ? '#FBBBBC' : T.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <span style={{ fontSize: 18 }}>📊</span>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>AI Pricing — Vidarbha Zone (Live)</div>
+          <div style={{
+            marginLeft: 'auto', fontSize: 11, fontWeight: 700,
+            padding: '3px 9px', borderRadius: 4,
+            background: vidarbhaRisk === 'HIGH' ? '#FEF0F1' : '#EDF7EA',
+            color: vidarbhaRisk === 'HIGH' ? '#E23744' : '#60B246',
+          }}>
+            Risk: {vidarbhaRisk}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
+          <span style={{ fontSize: 32, fontWeight: 900, color: T.primary }}>₹{vidarbhaPremium}</span>
+          <span style={{ fontSize: 13, color: T.textMuted }}>/ week · Market avg ₹145 · You save ₹{145 - vidarbhaPremium}</span>
+        </div>
+        <div style={{ fontSize: 11, color: T.textMuted, marginTop: 6 }}>
+          Premium auto-recalculates when drought index, zone risk, or season factor changes
+        </div>
+      </div>
+
+      {/* ── Top Live Fraud Alerts (real-time) ── */}
+      <div className="card" style={{ padding: 0, marginBottom: 24, overflow: 'hidden', border: `1px solid ${liveFraudAlerts.length > 0 ? '#FBBBBC' : '#F0F0F0'}` }}>
+        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>Fraud Alerts</div>
+            {liveFraudAlerts.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#E23744', background: '#FEF0F1', padding: '2px 8px', borderRadius: 4 }}>
+                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#E23744', animation: 'pulse 1.5s infinite' }} />
+                {liveFraudAlerts.length} live
+              </div>
+            )}
+          </div>
+          <button onClick={() => onNavigate('fraud')} style={{ fontSize: 12, fontWeight: 600, color: T.primary, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+            View all →
+          </button>
+        </div>
+        <div style={{ padding: '8px 0' }}>
+          {allFraudAlerts.slice(0, 5).map((alert, i) => {
+            const isLive = !!alert.isLive;
+            return (
+              <div key={alert.id} style={{
+                display: 'flex', gap: 12, padding: '10px 20px',
+                borderBottom: i < Math.min(allFraudAlerts.length, 5) - 1 ? `1px solid ${T.border}` : 'none',
+                background: isLive ? '#FFFAFA' : 'transparent',
+                alignItems: 'flex-start',
+              }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', marginTop: 4, flexShrink: 0, background: alert.level === 'high' ? '#E23744' : alert.level === 'medium' ? '#F59E0B' : '#60B246' }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: T.text }}>
+                    {alert.worker}
+                    {isLive && <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: '#E23744', background: '#FEF0F1', padding: '1px 5px', borderRadius: 3 }}>LIVE</span>}
+                  </div>
+                  <div style={{ fontSize: 11, color: T.textMuted }}>{alert.reason?.slice(0, 64)}...</div>
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: alert.level === 'high' ? '#E23744' : '#F59E0B' }}>{alert.score}%</div>
+              </div>
+            );
+          })}
+          {allFraudAlerts.length === 0 && (
+            <div style={{ padding: '20px', textAlign: 'center', color: T.textMuted, fontSize: 13 }}>No fraud alerts</div>
+          )}
+        </div>
+      </div>
+
+      {/* AI Zone Risk Predictions */}
+      <div className="card" style={{ padding: 20, marginBottom: 24 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 4 }}>AI Zone Risk — Tomorrow</div>
+        <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 16 }}>Predicted disruption probability by zone</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {ZONE_PREDICTIONS.map(z => (
+            <div key={z.zone} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: z.bg, borderRadius: 8, border: `1px solid ${z.color}22` }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{z.zone}</div>
+                <div style={{ fontSize: 11, color: T.textSec }}>{z.reason}</div>
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: z.color, padding: '4px 10px', background: 'white', borderRadius: 5, border: `1px solid ${z.color}33` }}>
+                {z.risk}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Payout Trend Chart */}
+      <div className="card" style={{ padding: 20, marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>Daily Payout Trend (Last 7 Days)</div>
+            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>Total disbursed automatically via UPI</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#60B246' }}>₹{(29.4 + totalAmountPaid / 100000).toFixed(1)}L</div>
+            <div style={{ fontSize: 10, color: T.textMuted }}>Week Total (incl. live)</div>
+          </div>
+        </div>
+        {(() => {
+          const bars = [
+            { day: 'Mon', val: 3.2 }, { day: 'Tue', val: 4.1 }, { day: 'Wed', val: 6.8 },
+            { day: 'Thu', val: 2.9 }, { day: 'Fri', val: 3.7 }, { day: 'Sat', val: 4.5 },
+            { day: 'Sun', val: 4.2 + totalAmountPaid / 500000 },
+          ];
+          const maxVal = Math.max(...bars.map(b => b.val));
+          return (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 100 }}>
+              {bars.map((bar, i) => {
+                const isToday = i === 6;
+                const height = Math.round((bar.val / maxVal) * 88);
                 return (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                    background: T.bg, borderRadius: 10, border: `1px solid ${T.border}`
-                  }}>
+                  <div key={bar.day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <div style={{ fontSize: 9, fontWeight: 600, color: T.textMuted }}>₹{bar.val.toFixed(1)}L</div>
                     <div style={{
-                      width: 34, height: 34, borderRadius: 8, background: statusColor + '15',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 12, fontWeight: 700, color: statusColor, flexShrink: 0
-                    }}>{c.aiScore}%</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 12, fontWeight: 600 }}>{c.workerName} · {c.trigger}</p>
-                      <p style={{ fontSize: 10, color: T.textMuted }}>{c.date} · {c.zone}</p>
-                    </div>
-                    <p style={{ fontSize: 13, fontWeight: 700 }}>₹{c.amount}</p>
-                    <span style={{
-                      padding: '3px 10px', borderRadius: 20, fontSize: 9, fontWeight: 700,
-                      background: statusColor + '15', color: statusColor
-                    }}>{c.status.toUpperCase()}</span>
-                    {c.status === 'pending' && (
-                      <button onClick={() => { svc.approveClaim(c.id); setData(svc.getSnapshot()); onToast?.(`✅ Claim ${c.id} approved`); }}
-                        style={{
-                          padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700,
-                          background: T.green, color: 'white', border: 'none', cursor: 'pointer',
-                          fontFamily: "'Plus Jakarta Sans',sans-serif"
-                        }}>✓</button>
-                    )}
+                      width: '100%', height,
+                      background: isToday ? 'linear-gradient(to top, #FF5200, #FF9A6C)' : 'linear-gradient(to top, #3B82F6, #93C5FD)',
+                      borderRadius: '5px 5px 2px 2px', transition: 'height .5s ease',
+                      border: isToday ? '1.5px solid #FF5200' : 'none',
+                    }} />
+                    <div style={{ fontSize: 9, fontWeight: isToday ? 700 : 500, color: isToday ? '#FF5200' : T.textMuted }}>{bar.day}</div>
                   </div>
                 );
               })}
             </div>
-          </div>
-        </div>
+          );
+        })()}
+      </div>
 
-        {/* Right */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Simulation Controls */}
-          <div className="card" style={{ padding: 20, border: `1px solid ${T.red}20` }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>🔥 Admin Simulation</h3>
-            <p style={{ fontSize: 11, color: T.textMuted, marginBottom: 14 }}>Fire zone-wide triggers and watch claims populate</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[
-                { type: 'rainfall', icon: '🌧️', label: 'City-Wide Rainfall' },
-                { type: 'aqi', icon: '🌫️', label: 'AQI Emergency' },
-                { type: 'heat', icon: '🌡️', label: 'Heat Wave' },
-                { type: 'platform', icon: '📵', label: 'Platform Outage' },
-                { type: 'traffic', icon: '🚧', label: 'Zone Lockdown' },
-              ].map((t, i) => (
-                <button key={i} onClick={() => fireCityTrigger(t.type)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-                    borderRadius: 10, border: `1px solid ${T.border}`, background: T.bg,
-                    cursor: 'pointer', fontSize: 13, fontWeight: 600, color: T.text,
-                    fontFamily: "'Plus Jakarta Sans',sans-serif", transition: 'all .15s',
-                    textAlign: 'left', width: '100%'
-                  }}>
-                  <span style={{ fontSize: 18 }}>{t.icon}</span>
-                  <span style={{ flex: 1 }}>{t.label}</span>
-                  <span style={{ fontSize: 11, color: T.red, fontWeight: 700 }}>FIRE</span>
-                </button>
-              ))}
+      {/* ML Model Cards */}
+      <div className="card" style={{ padding: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 16 }}>ML Models Status</div>
+        <div className="four-col" style={{ marginBottom: 0 }}>
+          {ML_MODELS.map(m => (
+            <div key={m.name} style={{ background: T.bg, borderRadius: 10, padding: '14px', border: `1px solid ${T.border}`, textAlign: 'center' }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>{m.icon}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 4 }}>{m.name}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: T.primary, marginBottom: 4 }}>{m.accuracy}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, display: 'inline-block',
+                background: m.status === 'active' ? '#EDF7EA' : '#FFFBEB',
+                color: m.status === 'active' ? '#60B246' : '#F59E0B',
+              }}>{m.status === 'active' ? '● Active' : '◌ Training'}</div>
             </div>
-          </div>
-
-          {/* Live Weather */}
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>🌦️ Live Conditions</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {[
-                { icon: '🌧️', label: 'Rainfall', value: `${weather.rainfall} mm/hr`, warn: weather.rainfall > 50 },
-                { icon: '🌡️', label: 'Temperature', value: `${weather.temperature}°C`, warn: weather.temperature > 42 },
-                { icon: '💨', label: 'AQI', value: aqi.aqi.toString(), warn: aqi.aqi > 300 },
-                { icon: '🚗', label: 'Traffic', value: `${traffic.congestion}/10`, warn: traffic.congestion > 7 },
-                { icon: '💧', label: 'Humidity', value: `${weather.humidity}%`, warn: false },
-              ].map((item, i) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                  background: item.warn ? T.redLight : T.bg, borderRadius: 8,
-                  border: `1px solid ${item.warn ? T.red + '20' : T.border}`
-                }}>
-                  <span style={{ fontSize: 16 }}>{item.icon}</span>
-                  <span style={{ flex: 1, fontSize: 12 }}>{item.label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: item.warn ? T.red : T.text }}>{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Recent Payouts */}
-          <div className="card" style={{ padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700 }}>💸 Recent Payouts</h3>
-              <span style={{ cursor: 'pointer', fontSize: 12, color: T.orange, fontWeight: 600 }}
-                onClick={() => onNavigate('payoutLedger')}>View All →</span>
-            </div>
-            {payoutLedger.length === 0 ? (
-              <p style={{ fontSize: 12, color: T.textMuted, textAlign: 'center', padding: 16 }}>No payouts yet</p>
-            ) : payoutLedger.slice(0, 4).map((p, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                borderBottom: `1px solid ${T.border}`, fontSize: 12
-              }}>
-                <span style={{ fontSize: 14 }}>✅</span>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 600 }}>{p.worker}</p>
-                  <p style={{ fontSize: 10, color: T.textMuted }}>{p.trigger} · {p.time}</p>
-                </div>
-                <p style={{ fontWeight: 700, color: T.green }}>₹{p.amount}</p>
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
       </div>
     </div>

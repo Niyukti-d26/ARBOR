@@ -156,7 +156,7 @@ export default function Onboarding({ onComplete }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22
           }}>🛡</div>
           <div>
-            <div style={{ fontSize: 20, fontWeight: 800 }}>GigShield</div>
+            <div style={{ fontSize: 20, fontWeight: 800 }}>ARBOR</div>
             <div style={{ fontSize: 12, opacity: .85 }}>Income Protection for Gig Workers</div>
           </div>
         </div>
@@ -406,7 +406,7 @@ export default function Onboarding({ onComplete }) {
                 ← Back
               </button>
               <button className="btn-primary" onClick={next} disabled={loading} style={{ flex: 1 }}>
-                {loading ? <><Spinner /> Activating your shield...</> : 'Activate GigShield 🛡'}
+                {loading ? <><Spinner /> Activating your shield...</> : 'Activate ARBOR 🛡'}
               </button>
             </div>
           </div>

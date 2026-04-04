@@ -1,5 +1,5 @@
 /**
- * GigShield — Real-time Data Service
+ * ARBOR — Real-time Data Service
  * Generates live, fluctuating data that simulates real API feeds.
  * Each data point updates independently with realistic patterns.
  */

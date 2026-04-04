@@ -1,149 +1,329 @@
-import { T, WEATHER_DATA, ZONES } from '../data/constants';
-import { PillTag } from '../components/shared';
+import { useState, useEffect, useRef } from 'react';
+import { T, getMockWeather, CITIES } from '../data/constants';
 
-const riskColors = { high: T.red, medium: T.amber, low: T.green };
+const OWM_API_KEY = '0a747540101ae72eb9b0c97f65f8513b';
+const CITY_LIST = CITIES;
+
+function getAqiInfo(aqi) {
+  if (aqi < 50)  return { label: 'Good',        color: '#60B246', bg: '#EDF7EA' };
+  if (aqi < 100) return { label: 'Satisfactory', color: '#60B246', bg: '#EDF7EA' };
+  if (aqi < 200) return { label: 'Moderate',     color: '#F59E0B', bg: '#FFFBEB' };
+  if (aqi < 300) return { label: 'Poor',         color: '#E23744', bg: '#FEF0F1' };
+  return              { label: 'Hazardous',      color: '#9B1D20', bg: '#FEF0F1' };
+}
+
+function getTriggerStatus(weather) {
+  const triggers = [];
+  if (weather.rainfall > 20) triggers.push({ name: 'Heavy Rainfall', active: true, color: '#3B82F6' });
+  if (weather.temperature > 40) triggers.push({ name: 'Extreme Heat', active: true, color: '#E23744' });
+  if (weather.aqi > 200) triggers.push({ name: 'AQI Emergency', active: true, color: '#F59E0B' });
+  if (weather.rainfall > 20 && weather.temperature > 40) {
+    const heat = triggers.find(t => t.name === 'Extreme Heat');
+    if (heat) heat.active = false;
+  }
+  return triggers;
+}
+
+async function fetchOWMWeather(cityName) {
+  const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(cityName)},IN&appid=${OWM_API_KEY}&units=metric`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`City not found: ${cityName}`);
+  const data = await res.json();
+  return {
+    temperature: +data.main.temp.toFixed(1),
+    rainfall: data.rain ? +(data.rain['1h'] || data.rain['3h'] || 0).toFixed(1) : 0,
+    humidity: data.main.humidity,
+    windSpeed: +data.wind.speed.toFixed(1),
+    aqi: Math.floor(data.main.humidity * 2 + data.main.pressure * 0.1), // approximate from available data
+    condition: data.weather[0]?.description || 'Clear',
+    heatIndex: +(data.main.feels_like || data.main.temp).toFixed(1),
+    platformStatus: {
+      Swiggy: { status: 'operational', uptime: 99.4 },
+      Zomato: { status: 'operational', uptime: 99.1 },
+      Uber: { status: 'operational', uptime: 99.6 },
+      Ola: { status: Math.random() > 0.9 ? 'degraded' : 'operational', uptime: 98.8 },
+    },
+    source: 'live', // mark as live data
+    cityName: data.name,
+  };
+}
 
 export default function LiveMonitor({ onToast }) {
-  return (
-    <div className="page-section">
-      <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4, letterSpacing: "-0.02em" }}>
-        Live Environmental Monitor
-      </h2>
-      <p style={{ fontSize: 13, color: T.textSec, marginBottom: 20 }}>
-        Real-time data from OpenWeatherMap, CPCB AQI, HERE Traffic APIs
-      </p>
+  const [weatherData, setWeatherData] = useState({});
+  const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [selectedCity, setSelectedCity] = useState('Mumbai');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [recentSearches, setRecentSearches] = useState(['Surat', 'Jaipur', 'Chandigarh']);
+  const [searchResult, setSearchResult] = useState(null); // custom searched city weather
+  const [searchError, setSearchError] = useState('');
+  const searchRef = useRef(null);
 
-      {/* Weather Grid */}
-      <div className="card" style={{ padding: 20, marginBottom: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <div>
-            <h3 style={{ fontSize: 15, fontWeight: 700 }}>Current Conditions — Chennai, Tamil Nadu</h3>
+  const fetchWeather = () => {
+    const data = {};
+    CITY_LIST.forEach(city => {
+      data[city] = getMockWeather(city);
+    });
+    setWeatherData(data);
+    setLastRefresh(new Date());
+  };
+
+  useEffect(() => {
+    fetchWeather();
+    const interval = setInterval(fetchWeather, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    setSearchError('');
+    setSearchResult(null);
+    try {
+      const result = await fetchOWMWeather(searchQuery.trim());
+      setSearchResult(result);
+      setSelectedCity(result.cityName);
+      // Update recent searches (max 3)
+      setRecentSearches(prev => {
+        const filtered = prev.filter(c => c.toLowerCase() !== result.cityName.toLowerCase());
+        return [result.cityName, ...filtered].slice(0, 3);
+      });
+    } catch (err) {
+      setSearchError(`City not found. Try another city name.`);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleQuickSearch = async (city) => {
+    setSearchQuery(city);
+    setSearching(true);
+    setSearchError('');
+    setSearchResult(null);
+    try {
+      const result = await fetchOWMWeather(city);
+      setSearchResult(result);
+      setSelectedCity(result.cityName);
+    } catch {
+      setSearchError(`Could not fetch weather for ${city}.`);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // Determine current display data
+  const displayWeather = searchResult || weatherData[selectedCity];
+  const selected = displayWeather;
+  const aqiInfo = selected ? getAqiInfo(selected.aqi) : null;
+  const activeTriggers = selected ? getTriggerStatus(selected) : [];
+
+  return (
+    <div style={{ padding: '24px 28px', animation: 'fadeUp .35s ease both' }}>
+      {/* ── City Search Bar ── */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+          <div style={{ flex: 1, position: 'relative' }}>
+            <span style={{
+              position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+              fontSize: 16, color: T.textMuted,
+            }}>🔍</span>
+            <input
+              ref={searchRef}
+              type="text"
+              placeholder="Search any Indian city (eg: Surat, Jaipur, Kochi...)"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              style={{
+                width: '100%', paddingLeft: 40, paddingRight: 14, height: 42,
+                borderRadius: 8, border: `1.5px solid ${T.border}`, fontSize: 13,
+                fontFamily: 'Inter, sans-serif', color: T.text, background: T.white,
+                outline: 'none', boxSizing: 'border-box',
+              }}
+            />
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 5,
-              padding: "3px 10px", borderRadius: 6,
-              background: T.redLight, border: `1px solid ${T.red}20`,
-              fontSize: 10, fontWeight: 700, color: T.red
-            }}>
-              <div className="pulse-dot" style={{ background: T.red, width: 5, height: 5 }} />LIVE
-            </div>
-            <span style={{ fontSize: 11, color: T.textMuted }}>Updated just now</span>
-          </div>
+          <button onClick={handleSearch} disabled={searching} style={{
+            padding: '0 20px', borderRadius: 8, border: 'none',
+            background: T.primary, color: 'white', fontSize: 13, fontWeight: 700,
+            cursor: searching ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif',
+            opacity: searching ? 0.7 : 1, whiteSpace: 'nowrap',
+          }}>
+            {searching ? '...' : 'Search'}
+          </button>
         </div>
-        <div className="weather-grid">
-          {WEATHER_DATA.map((w, i) => (
-            <div key={i} className="weather-item">
-              <div style={{ fontSize: 30, marginBottom: 6 }}>{w.icon}</div>
-              <p style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, letterSpacing: ".05em" }}>{w.label}</p>
-              <p style={{ fontSize: 22, fontWeight: 800, margin: "4px 0" }}>{w.value}</p>
-              <p style={{ fontSize: 10, color: T.textMuted }}>{w.unit}</p>
-              <span className={`weather-status ${w.status}`}>{w.statusText}</span>
-            </div>
+
+        {/* Recent search chips */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span style={{ fontSize: 11, color: T.textMuted }}>Recent:</span>
+          {recentSearches.map(city => (
+            <button key={city} onClick={() => handleQuickSearch(city)} style={{
+              padding: '4px 12px', borderRadius: 20, border: `1px solid ${T.border}`,
+              background: T.white, fontSize: 12, fontWeight: 500, color: T.textSec,
+              cursor: 'pointer', fontFamily: 'Inter, sans-serif', transition: 'all .15s',
+            }}>{city}</button>
           ))}
+          {searchResult && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '3px 10px', borderRadius: 20,
+              background: '#EFF6FF', border: '1px solid #BFDBFE',
+              fontSize: 11, fontWeight: 600, color: '#1D4ED8',
+            }}>
+              🌐 Live: {searchResult.cityName}
+            </div>
+          )}
         </div>
+
+        {searchError && (
+          <div style={{ marginTop: 8, padding: '8px 12px', background: '#FEF0F1', borderRadius: 6, border: '1px solid #FBBBBC', fontSize: 12, color: '#E23744' }}>
+            {searchError}
+          </div>
+        )}
       </div>
 
-      <div className="main-side">
-        {/* Risk Zone Map */}
-        <div className="card" style={{ padding: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700 }}>Risk Zone Map — Chennai</h3>
-            <button className="btn-ghost" style={{ padding: "6px 14px", fontSize: 12 }}
-              onClick={() => onToast && onToast("Zone scan started — scanning 24 micro-zones...")}>
-              Refresh Zones
-            </button>
-          </div>
-          <div className="zone-map">
-            <div className="zone-bg" />
-            <div className="zone-grid-lines" />
-            <div className="zone-dot danger" style={{ top: "40%", left: "30%" }} title="T.Nagar - HIGH RISK" />
-            <div className="zone-dot danger" style={{ top: "55%", left: "45%" }} title="Vadapalani - HIGH RISK" />
-            <div className="zone-dot warn" style={{ top: "30%", left: "60%" }} title="Anna Nagar - WARNING" />
-            <div className="zone-dot warn" style={{ top: "65%", left: "25%" }} title="Chrompet - WARNING" />
-            <div className="zone-dot safe" style={{ top: "20%", left: "75%" }} title="OMR - CLEAR" />
-            <div className="zone-dot safe" style={{ top: "75%", left: "70%" }} title="Sholinganallur - CLEAR" />
-            <div className="zone-dot safe" style={{ top: "45%", left: "80%" }} title="Velachery - CLEAR" />
-            <div style={{
-              position: "absolute", bottom: 12, left: 14, fontSize: 10,
-              display: "flex", gap: 14, color: T.textMuted
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div style={{ fontSize: 13, color: T.textMuted }}>
+          Last updated: {lastRefresh.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} · Refreshes every 30s
+        </div>
+        <button onClick={() => { fetchWeather(); setSearchResult(null); }} style={{
+          background: T.primary, color: 'white', border: 'none', borderRadius: 7,
+          padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          fontFamily: 'Inter, sans-serif',
+        }}>↻ Refresh</button>
+      </div>
+
+      {/* City Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+        {CITY_LIST.map(city => {
+          const w = weatherData[city];
+          if (!w) return (
+            <div key={city} style={{ background: T.white, borderRadius: 10, border: `1px solid ${T.border}`, padding: 16, opacity: 0.6 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{city}</div>
+              <div style={{ fontSize: 11, color: T.textMuted }}>Loading...</div>
+            </div>
+          );
+          const isAlert = w.rainfall > 20 || w.temperature > 40 || w.aqi > 200;
+          const isSelected = !searchResult && selectedCity === city;
+          return (
+            <div key={city} onClick={() => { setSelectedCity(city); setSearchResult(null); setSearchQuery(''); }} style={{
+              background: T.white, borderRadius: 10, border: `1.5px solid`,
+              borderColor: isSelected ? T.primary : isAlert ? '#FFD5C2' : T.border,
+              padding: 14, cursor: 'pointer', transition: 'all .15s',
             }}>
-              {[{ c: T.red, l: "High Risk" }, { c: T.amber, l: "Warning" }, { c: T.green, l: "Clear" }].map((item, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: item.c + "99" }} />
-                  {item.l}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{city}</div>
+                {isAlert && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#E23744', animation: 'pulse 1.5s infinite' }} />}
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: T.text }}>{w.temperature}°C</div>
+              <div style={{ fontSize: 11, color: T.textSec, marginTop: 4 }}>
+                🌧 {w.rainfall}mm · AQI {w.aqi}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Selected City Detail */}
+      {selected && (
+        <div className="fade-up" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          {/* Weather Detail */}
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>
+                {selectedCity} — Detailed View
+              </div>
+              {searchResult && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '3px 8px', borderRadius: 5, background: '#EFF6FF',
+                  fontSize: 10, fontWeight: 700, color: '#1D4ED8',
+                }}>
+                  🌐 LIVE API
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div style={{ textAlign: 'center', padding: 14, background: T.bg, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: T.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Temperature</div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: selected.temperature > 40 ? '#E23744' : T.text }}>{selected.temperature}°C</div>
+                <div style={{ fontSize: 11, color: T.textMuted }}>{selected.condition}</div>
+              </div>
+              <div style={{ textAlign: 'center', padding: 14, background: T.bg, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: T.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Rainfall</div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: selected.rainfall > 20 ? '#3B82F6' : T.text }}>{selected.rainfall}mm</div>
+                <div style={{ fontSize: 11, color: selected.rainfall > 20 ? '#3B82F6' : T.textMuted }}>
+                  {selected.rainfall > 20 ? '⚠ Heavy rain trigger' : 'Normal'}
+                </div>
+              </div>
+              <div style={{ textAlign: 'center', padding: 14, background: aqiInfo.bg, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: aqiInfo.color, fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>AQI</div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: aqiInfo.color }}>{selected.aqi}</div>
+                <div style={{ fontSize: 11, color: aqiInfo.color, fontWeight: 600 }}>{aqiInfo.label}</div>
+              </div>
+              <div style={{ textAlign: 'center', padding: 14, background: T.bg, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: T.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Heat Index</div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: selected.heatIndex > 40 ? '#E23744' : T.text }}>{selected.heatIndex}°</div>
+                <div style={{ fontSize: 11, color: T.textMuted }}>Humidity {selected.humidity}%</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Trigger Logic */}
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 16 }}>Active Trigger Logic</div>
+            {selected.rainfall > 20 && (
+              <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '10px 12px', marginBottom: 14, fontSize: 12, color: '#1D4ED8' }}>
+                ℹ️ Rainfall &gt;20mm detected — <strong>Heat trigger is automatically disabled</strong> to prevent duplicate payouts.
+              </div>
+            )}
+            {selected.temperature > 40 && selected.rainfall <= 20 && (
+              <div style={{ background: '#FEF0F1', border: '1px solid #FCA5A5', borderRadius: 8, padding: '10px 12px', marginBottom: 14, fontSize: 12, color: '#991B1B' }}>
+                ℹ️ Temp &gt;40°C detected — <strong>Rain trigger is automatically disabled</strong>.
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                { key: 'rain', label: 'Heavy Rainfall', icon: '🌧️', active: selected.rainfall > 20, value: `${selected.rainfall}mm`, threshold: '>20mm', disabled: selected.temperature > 40 },
+                { key: 'heat', label: 'Extreme Heat', icon: '🌡️', active: selected.temperature > 40, value: `${selected.temperature}°C`, threshold: '>40°C', disabled: selected.rainfall > 20 },
+                { key: 'aqi', label: 'AQI Emergency', icon: '😷', active: selected.aqi > 200, value: selected.aqi, threshold: '>200', disabled: false },
+              ].map(tr => (
+                <div key={tr.key} style={{
+                  display: 'flex', alignItems: 'center', padding: '10px 12px', borderRadius: 8,
+                  background: tr.disabled ? '#F5F5F5' : tr.active ? (tr.key === 'rain' ? '#EFF6FF' : tr.key === 'heat' ? '#FEF0F1' : '#FFFBEB') : T.bg,
+                  border: `1px solid ${tr.disabled ? T.border : tr.active ? (tr.key === 'rain' ? '#BFDBFE' : tr.key === 'heat' ? '#FCA5A5' : '#FCD34D') : T.border}`,
+                  opacity: tr.disabled ? 0.5 : 1,
+                }}>
+                  <span style={{ fontSize: 20, marginRight: 10 }}>{tr.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{tr.label}</div>
+                    <div style={{ fontSize: 11, color: T.textMuted }}>Threshold: {tr.threshold} · Now: {tr.value}</div>
+                  </div>
+                  <div style={{
+                    fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 4,
+                    background: tr.disabled ? T.border : tr.active ? '#E23744' : '#EDF7EA',
+                    color: tr.disabled ? T.textMuted : tr.active ? 'white' : '#60B246',
+                  }}>
+                    {tr.disabled ? 'Disabled' : tr.active ? 'TRIGGERED' : 'Normal'}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Platform status */}
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${T.border}` }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: T.textSec, marginBottom: 10 }}>Platform Status</div>
+              {Object.entries(selected.platformStatus).map(([name, info]) => (
+                <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, color: T.textSec }}>{name}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: info.status === 'operational' ? '#60B246' : '#F59E0B' }}>
+                    {info.status === 'operational' ? '● ' : '◐ '}{info.uptime}% uptime
+                  </span>
                 </div>
               ))}
             </div>
           </div>
-
-          <table className="zone-table" style={{ marginTop: 16 }}>
-            <thead>
-              <tr><th>Zone</th><th>Risk Level</th><th>Workers</th><th>Active Disruption</th></tr>
-            </thead>
-            <tbody>
-              {ZONES.map((z, i) => (
-                <tr key={i}>
-                  <td style={{ fontWeight: 600 }}>{z.name}</td>
-                  <td><PillTag color={riskColors[z.risk]}>{z.risk.toUpperCase()}</PillTag></td>
-                  <td>{z.workers}</td>
-                  <td><PillTag color={z.disruption === "None" ? T.green : T.red}>{z.disruption}</PillTag></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
-
-        {/* Right column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Pre-Shield Alert */}
-          <div className="card" style={{ padding: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700 }}>Pre-Shield Alert</h3>
-              <PillTag color={T.blue}>PREDICTIVE</PillTag>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ background: T.blueLight, borderRadius: 12, padding: "14px 16px", border: `1px solid ${T.blue}25` }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: T.blue, marginBottom: 4 }}>PREDICTED — 3 hrs from now</p>
-                <p style={{ fontWeight: 600, fontSize: 14 }}>Heavy rain expected in Adyar</p>
-                <p style={{ fontSize: 11, color: T.textSec, marginTop: 3 }}>Avoid this zone by 6 PM</p>
-              </div>
-              <div style={{ background: T.amberLight, borderRadius: 12, padding: "14px 16px", border: `1px solid ${T.amber}25` }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: T.amber, marginBottom: 4 }}>WATCH — Tomorrow AM</p>
-                <p style={{ fontWeight: 600, fontSize: 14 }}>Cyclone alert — coastal zones</p>
-                <p style={{ fontSize: 11, color: T.textSec, marginTop: 3 }}>Coverage auto-activates at trigger</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Income Impact Score */}
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Income Impact Score</h3>
-            <div style={{ textAlign: "center", padding: "8px 0" }}>
-              <p style={{ fontSize: 52, fontWeight: 800, color: T.red, lineHeight: 1 }}>68%</p>
-              <p style={{ fontSize: 12, color: T.textMuted, marginTop: 6 }}>Income drop detected today</p>
-              <div style={{ marginTop: 14, height: 10, background: T.border, borderRadius: 5, overflow: "hidden" }}>
-                <div style={{
-                  height: "100%", width: "68%",
-                  background: `linear-gradient(90deg, ${T.red}, ${T.orange})`,
-                  borderRadius: 5
-                }} />
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: T.textMuted, marginTop: 4 }}>
-                <span>0%</span><span>30% threshold</span><span>100%</span>
-              </div>
-              <div style={{
-                marginTop: 14, padding: "12px 14px",
-                background: T.greenLight, borderRadius: 10,
-                border: `1px solid ${T.green}20`
-              }}>
-                <p style={{ fontWeight: 700, color: T.green, fontSize: 14 }}>ELIGIBLE FOR PAYOUT</p>
-                <p style={{ fontSize: 11, color: T.textSec, marginTop: 3 }}>Estimated: ₹300 today</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

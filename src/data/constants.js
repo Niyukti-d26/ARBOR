@@ -84,9 +84,9 @@ export const CITIES = Object.keys(CITY_ZONES);
 
 // ── Plans ──
 export const PLANS = [
-  { id: 'starter', name: 'Starter', price: 50, cap: 1000, dailyPayout: 200, days: 2, color: '#3B82F6' },
-  { id: 'standard', name: 'Standard', price: 80, cap: 1500, dailyPayout: 300, days: 3, color: '#FF5200', tag: 'Popular' },
-  { id: 'pro', name: 'Pro', price: 120, cap: 2500, dailyPayout: 400, days: 4, color: '#60B246', tag: 'Best Value' },
+  { id: 'starter', name: 'Starter', price: 50, cap: 600, dailyPayout: 200, days: 2, weeklyCap: 600, color: '#3B82F6' },
+  { id: 'standard', name: 'Standard', price: 100, cap: 1200, dailyPayout: 300, days: 3, weeklyCap: 1200, color: '#FF5200', tag: 'Popular' },
+  { id: 'pro', name: 'Pro', price: 200, cap: 2000, dailyPayout: 400, days: 4, weeklyCap: 2000, color: '#60B246', tag: 'Best Value' },
 ];
 
 // ── Default Worker ──

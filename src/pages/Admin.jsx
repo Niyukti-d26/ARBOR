@@ -16,7 +16,7 @@ export default function Admin({ user, onToast }) {
     setExporting(true);
     try {
       await exportAdminExcel(user);
-      onToast && onToast("GigShield_AdminReport.xlsx downloaded!");
+      onToast && onToast("ARBOR_AdminReport.xlsx downloaded!");
     } catch {
       onToast && onToast("Export failed — check console");
     } finally {
@@ -45,7 +45,7 @@ export default function Admin({ user, onToast }) {
           }}>⚙</div>
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 800 }}>Admin Console</h2>
-            <p style={{ fontSize: 12, color: T.textSec }}>GigShield Operations Dashboard</p>
+            <p style={{ fontSize: 12, color: T.textSec }}>ARBOR Operations Dashboard</p>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
