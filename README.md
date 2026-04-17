@@ -160,6 +160,10 @@ Every claim is validated against multiple signals that GPS spoofing apps cannot 
 
 ---
 
+## **PITCH DECK**
+
+https://drive.google.com/file/d/1_DrXrTMExSWUXqz5lDtGGkDs48QPngw-/view?usp=sharing
+
 ## Tech Stack
 
 | Layer | Technology |
