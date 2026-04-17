@@ -234,6 +234,10 @@ Open `http://localhost:5173` in your browser.
 
 ---
 
+## PITCH DECK
+
+https://drive.google.com/file/d/1_DrXrTMExSWUXqz5lDtGGkDs48QPngw-/view?usp=sharing
+
 ## API Keys (Demo/Test)
 
 ```env
