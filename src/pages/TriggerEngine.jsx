@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { T, TRIGGERS } from '../data/constants';
 import { PillTag } from '../components/shared';
+import { CheckCircle, AlertTriangle, RefreshCw, Activity, Zap } from '../components/Icons';
 
 // Mock API functions
 function mockIMDApi(override) {
@@ -84,7 +85,7 @@ export default function TriggerEngine({ onToast }) {
     TRIGGERS.reduce((acc, t) => ({ ...acc, [t.key]: t.currentValue }), {})
   );
   const [events, setEvents] = useState([
-    { icon: '🟢', time: new Date().toLocaleTimeString(), message: 'Trigger Engine initialized', type: 'info', level: 'INFO' },
+    { icon: <CheckCircle size={14} color={T.green} />, time: new Date().toLocaleTimeString(), message: 'Trigger Engine initialized', type: 'info', level: 'INFO' },
   ]);
   const [isSimulating, setIsSimulating] = useState(false);
   const intervalRef = useRef(null);
@@ -134,17 +135,17 @@ export default function TriggerEngine({ onToast }) {
     TRIGGERS.forEach((t, i) => {
       setTimeout(() => {
         simulateBreach(t);
-        if (i === TRIGGERS.length - 1) {
+        if (i === TRIGGERS?.length - 1) {
           setTimeout(() => setIsSimulating(false), 1000);
-          addEvent('🔥', 'ALL TRIGGERS BREACHED — Composite trigger FIRING', 'breach', 'FIRE');
+          addEvent(<AlertTriangle size={14} color={T.orange} />, 'ALL TRIGGERS BREACHED — Composite trigger FIRING', 'breach', 'FIRE');
         }
       }, i * 600);
     });
   };
 
   const resetAll = () => {
-    setTriggerData(TRIGGERS.reduce((acc, t) => ({ ...acc, [t.key]: t.key === 'platform' ? 0 : t.currentValue * 0.6 }), {}));
-    addEvent('🔄', 'All triggers reset to normal values', 'info', 'RESET');
+    setTriggerData(TRIGGERS?.reduce((acc, t) => ({ ...acc, [t.key]: t.key === 'platform' ? 0 : t.currentValue * 0.6 }), {}));
+    addEvent(<RefreshCw size={14} color={T.blue} />, 'All triggers reset to normal values', 'info', 'RESET');
   };
 
   const maxValues = { rainfall: 100, aqi: 500, traffic: 10, platform: 120, heat: 55 };
@@ -161,12 +162,12 @@ export default function TriggerEngine({ onToast }) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn-ghost" onClick={resetAll} style={{ padding: '8px 14px', fontSize: 12 }}>
-            🔄 Reset All
+          <button className="btn-ghost" onClick={resetAll} style={{ padding: '8px 14px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <RefreshCw size={12} /> Reset All
           </button>
           <button className="btn-primary" onClick={simulateAllBreaches} disabled={isSimulating}
-            style={{ width: 'auto', padding: '8px 18px', fontSize: 12 }}>
-            {isSimulating ? '⏳ Simulating...' : '🔥 Breach All'}
+            style={{ width: 'auto', padding: '8px 18px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+            {isSimulating ? <><Activity size={12} /> Simulating...</> : <><Zap size={12} /> Breach All</>}
           </button>
         </div>
       </div>
@@ -192,7 +193,7 @@ export default function TriggerEngine({ onToast }) {
                   </div>
                 </div>
                 <span className={`trigger-status-badge ${breached ? 'active' : triggerData[trigger.key] > trigger.threshold * 0.7 ? 'monitoring' : 'clear'}`}>
-                  {breached ? '🔴 FIRING' : triggerData[trigger.key] > trigger.threshold * 0.7 ? '🟡 WATCH' : '🟢 CLEAR'}
+                  {breached ? 'FIRING' : triggerData[trigger.key] > trigger.threshold * 0.7 ? 'WATCH' : 'CLEAR'}
                 </span>
               </div>
 
@@ -248,12 +249,14 @@ export default function TriggerEngine({ onToast }) {
             })}
           </div>
 
-          {TRIGGERS.every(t => triggerData[t.key] >= t.threshold) && (
+          {TRIGGERS?.every(t => triggerData[t.key] >= t.threshold) && (
             <div className="pop-in" style={{
               marginTop: 16, padding: '16px 18px', borderRadius: 12,
-              background: `linear-gradient(135deg, ${T.red}, ${T.orange})`, color: 'white', textAlign: 'center'
+              background: `linear-gradient(135deg, ${T.red}, ${T.orange})`, color: 'white', textAlign: 'center',
+              display: 'flex', flexDirection: 'column', alignItems: 'center'
             }}>
-              <p style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>🔥 COMPOSITE TRIGGER FIRED</p>
+              <AlertTriangle size={24} color="white" style={{ marginBottom: 6 }} />
+              <p style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>COMPOSITE TRIGGER FIRED</p>
               <p style={{ fontSize: 12, opacity: 0.9 }}>All 5 conditions met — payout eligible</p>
             </div>
           )}

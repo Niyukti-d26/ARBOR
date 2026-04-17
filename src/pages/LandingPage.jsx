@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { T } from '../data/constants';
+import { CloudRain, Money, Bot, Phone, FileText, User, Zap, Target } from '../components/Icons';
 
 const FEATURES = [
-  { icon: '🌧️', title: 'Automatic Claim Detection', desc: 'Claims triggered instantly by satellite weather data, AQI sensors, and platform APIs — no forms needed.', color: '#3B82F6' },
-  { icon: '💸', title: 'UPI Payouts in Minutes', desc: 'Your payout lands in your UPI account within minutes of a verified weather or platform disruption.', color: '#60B246' },
-  { icon: '🤖', title: 'AI-Powered Premiums', desc: 'ML models calculate fair premiums from your gig history, zone risk, and seasonal patterns.', color: '#F59E0B' },
+  { icon: <CloudRain size={26} color="#3B82F6" />, title: 'Automatic Claim Detection', desc: 'Claims triggered instantly by satellite weather data, AQI sensors, and platform APIs — no forms needed.', color: '#3B82F6' },
+  { icon: <Money size={26} color="#60B246" />, title: 'UPI Payouts in Minutes', desc: 'Your payout lands in your UPI account within minutes of a verified weather or platform disruption.', color: '#60B246' },
+  { icon: <Bot size={26} color="#F59E0B" />, title: 'AI-Powered Premiums', desc: 'ML models calculate fair premiums from your gig history, zone risk, and seasonal patterns.', color: '#F59E0B' },
 ];
 
 const STEPS = [
-  { n: '01', title: 'Sign up in 2 min', desc: 'Verify with your phone and Aadhaar. No paper, no branch visit.', icon: '📱' },
-  { n: '02', title: 'Pick a plan', desc: 'Starter ₹50/wk, Standard ₹80/wk, or Pro ₹120/wk. Weekly premiums, cancel anytime.', icon: '📑' },
-  { n: '03', title: 'Get paid automatically', desc: 'When disruptions hit your zone, we detect, verify, and pay — before you even file a claim.', icon: '💸' },
+  { n: '01', title: 'Sign up in 2 min', desc: 'Verify with your phone and Aadhaar. No paper, no branch visit.', icon: <Phone size={32} color={T.primary} /> },
+  { n: '02', title: 'Pick a plan', desc: 'Starter ₹50/wk, Standard ₹80/wk, or Pro ₹120/wk. Weekly premiums, cancel anytime.', icon: <FileText size={32} color={T.primary} /> },
+  { n: '03', title: 'Get paid automatically', desc: 'When disruptions hit your zone, we detect, verify, and pay — before you even file a claim.', icon: <Money size={32} color={T.primary} /> },
 ];
 
 export default function LandingPage({ onSelectRole }) {
@@ -139,17 +140,17 @@ export default function LandingPage({ onSelectRole }) {
       }}>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 0, flexWrap: 'wrap', maxWidth: 900, margin: '0 auto' }}>
           {[
-            { label: 'Active Workers', val: '52,841', icon: '👥' },
-            { label: 'Paid Out Today', val: '₹4.2L', icon: '💸' },
-            { label: 'Avg Claim Time', val: '< 3 min', icon: '⚡' },
-            { label: 'Satisfaction', val: '98.4%', icon: '⭐' },
+            { label: 'Active Workers', val: '52,841', icon: <User size={20} color="white" /> },
+            { label: 'Paid Out Today', val: '₹4.2L', icon: <Money size={20} color="white" /> },
+            { label: 'Avg Claim Time', val: '< 3 min', icon: <Zap size={20} color="white" /> },
+            { label: 'Satisfaction', val: '98.4%', icon: <Target size={20} color="white" /> },
           ].map((s, i) => (
             <div key={s.label} style={{
               textAlign: 'center', flex: '1 1 160px',
               padding: '12px 24px',
               borderRight: i < 3 ? '1px solid rgba(255,255,255,0.15)' : 'none',
             }}>
-              <div style={{ fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{s.icon}</div>
               <div style={{ fontSize: 28, fontWeight: 900, color: 'white', letterSpacing: -0.5 }}>{s.val}</div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 500, marginTop: 2, letterSpacing: 0.5 }}>{s.label}</div>
             </div>
@@ -181,7 +182,7 @@ export default function LandingPage({ onSelectRole }) {
                 fontSize: 13, fontWeight: 800, color: T.border,
                 letterSpacing: -0.5,
               }}>{step.n}</div>
-              <div style={{ fontSize: 32, marginBottom: 16 }}>{step.icon}</div>
+              <div style={{ display: 'flex', marginBottom: 16 }}>{step.icon}</div>
               <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 8 }}>{step.title}</div>
               <div style={{ fontSize: 13, color: T.textSec, lineHeight: 1.6 }}>{step.desc}</div>
             </div>

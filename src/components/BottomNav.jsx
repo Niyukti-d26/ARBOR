@@ -1,11 +1,12 @@
 import { T } from '../data/constants';
+import { Dashboard, Zap, Money, FileText } from './Icons';
 
 const TABS = [
-  { id: 'dashboard', icon: '📊', label: 'Home' },
-  { id: 'claims',    icon: '⚡', label: 'Claims' },
-  { id: 'premium',   icon: '💰', label: 'Premium' },
-  { id: 'policy',    icon: '📑', label: 'Policy' },
-  { id: 'payment',   icon: '💳', label: 'Pay' },
+  { id: 'dashboard', icon: <Dashboard size={20} />, label: 'Home' },
+  { id: 'claims',    icon: <Zap size={20} />, label: 'Claims' },
+  { id: 'premium',   icon: <Money size={20} />, label: 'Premium' },
+  { id: 'policy',    icon: <FileText size={20} />, label: 'Policy' },
+  { id: 'payment',   icon: <FileText size={20} />, label: 'Pay' },
 ];
 
 export default function BottomNav({ active, onChange }) {

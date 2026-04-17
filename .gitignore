@@ -32,3 +32,4 @@ backend/.env
 
 # Rename helper scripts (temp)
 rename_arbor.*
+.env*.local

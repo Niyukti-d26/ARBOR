@@ -1,4 +1,5 @@
 import { T } from '../data/constants';
+import { Bell } from './Icons';
 
 export default function Topbar({ title, user }) {
   return (
@@ -10,7 +11,7 @@ export default function Topbar({ title, user }) {
           All Systems Live
         </div>
         <button className="notif-btn" title="Notifications">
-          🔔
+          <Bell size={20} />
           <span style={{
             position: 'absolute', top: -2, right: -2, width: 16, height: 16,
             borderRadius: '50%', background: T.red, color: 'white',

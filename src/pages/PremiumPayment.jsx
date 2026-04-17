@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { T, PLANS, PAYMENT_HISTORY } from '../data/constants';
+import { Money } from '../components/Icons';
 
 export default function PremiumPayment({ user, onToast }) {
   const plan = PLANS.find(p => p.id === user.plan) || PLANS[1];
@@ -10,7 +11,7 @@ export default function PremiumPayment({ user, onToast }) {
     setPayPhase('processing');
     setTimeout(() => {
       setPayPhase('success');
-      onToast?.(`✅ ₹${plan.price} paid successfully via UPI`);
+      onToast?.(`₹${plan.price} paid successfully via UPI`);
       setTimeout(() => setPayPhase(null), 4000);
     }, 2500);
   };
@@ -38,7 +39,7 @@ export default function PremiumPayment({ user, onToast }) {
 
           {payPhase === 'processing' ? (
             <div className="card pop-in" style={{ padding: 30, textAlign: 'center' }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>🏦</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Money size={40} color={T.primary} /></div>
               <p style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Processing Payment...</p>
               <div className="upi-progress-bar" style={{ maxWidth: 280, margin: '0 auto' }}>
                 <div className="upi-progress-fill sending" />
@@ -86,7 +87,7 @@ export default function PremiumPayment({ user, onToast }) {
                 background: T.greenLight, border: `1px solid ${T.green}20`,
                 fontSize: 11, color: T.green, fontWeight: 600
               }}>
-                ✅ Auto-pay active · ₹{plan.price}/week from {user.upiId || 'user@ybl'}
+                Auto-pay active · ₹{plan.price}/week from {user.upiId || 'user@ybl'}
               </div>
             )}
           </div>
@@ -94,7 +95,7 @@ export default function PremiumPayment({ user, onToast }) {
 
         {/* Transaction History */}
         <div className="card" style={{ padding: 20, alignSelf: 'flex-start' }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>📋 Payment History</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Payment History</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {PAYMENT_HISTORY.slice(0, 8).map((p, i) => (
               <div key={i} style={{

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { T, MOCK_PAYOUTS } from '../data/constants';
+import { CloudRain, Shield, Activity, Zap } from '../components/Icons';
 import { readState, EVENT_NAME } from '../utils/cropInsuranceState';
 
 const SEED_PAYOUTS = [
@@ -12,11 +13,11 @@ const SEED_PAYOUTS = [
 ];
 
 const TRIGGER_ICONS = {
-  'Heavy Rainfall': '🌧️',
-  'AQI Emergency':  '😷',
-  'Platform Outage':'📱',
-  'Zone Lockdown':  '🚧',
-  'Extreme Heat':   '🌡️',
+  'Heavy Rainfall': <CloudRain size={16} />,
+  'AQI Emergency':  <Shield size={16} />,
+  'Platform Outage':<Activity size={16} />,
+  'Zone Lockdown':  <Activity size={16} />,
+  'Extreme Heat':   <Zap size={16} />,
 };
 
 export default function PayoutLedger() {
@@ -106,7 +107,7 @@ export default function PayoutLedger() {
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           {Object.entries(byTrigger).map(([trigger, count]) => (
             <div key={trigger} style={{ background: T.bg, borderRadius: 8, padding: '10px 16px', border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 16 }}>{TRIGGER_ICONS[trigger] || '⚡'}</span>
+              <span style={{ display: 'flex', alignItems: 'center' }}>{TRIGGER_ICONS[trigger] || <Zap size={16} />}</span>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{count}</div>
                 <div style={{ fontSize: 10, color: T.textMuted }}>{trigger}</div>
@@ -151,7 +152,7 @@ export default function PayoutLedger() {
                 </td>
                 <td style={{ fontSize: 13, fontWeight: 600 }}>{p.worker}</td>
                 <td>
-                  <span style={{ fontSize: 13 }}>{TRIGGER_ICONS[p.trigger] || '⚡'} {p.trigger || '—'}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{TRIGGER_ICONS[p.trigger] || <Zap size={16} />} {p.trigger || '—'}</span>
                 </td>
                 <td style={{ fontSize: 14, fontWeight: 800, color: T.success }}>₹{p.amount}</td>
                 <td><span className="badge badge-blue">UPI</span></td>

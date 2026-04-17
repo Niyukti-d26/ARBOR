@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { T, PLANS, POLICY_HISTORY } from '../data/constants';
 import { PillTag, ProgressBar } from '../components/shared';
+import { CheckCircle, Activity, Shield, CloudRain, Zap } from '../components/Icons';
 
 const statusColors = {
   active: T.green, upgraded: T.blue, verified: T.purple, created: T.orange, expired: T.textMuted
 };
 const statusIcons = {
-  active: '✅', upgraded: '⬆️', verified: '🔐', created: '📝', expired: '⏰'
+  active: <CheckCircle size={8} />, upgraded: <Activity size={8} />, verified: <Shield size={8} />, created: <CheckCircle size={8} />, expired: <Activity size={8} />
 };
 
 export default function PolicyManagement({ user, onPlanChange, onToast }) {
@@ -24,12 +25,12 @@ export default function PolicyManagement({ user, onPlanChange, onToast }) {
   };
 
   const coverageItems = [
-    { icon: '🌧️', name: 'Heavy Rainfall', limit: `₹${plan.dailyPayout}/day`, active: true },
-    { icon: '🌊', name: 'Flood / Waterlogging', limit: `₹${plan.dailyPayout}/day`, active: true },
-    { icon: '🌡️', name: 'Extreme Heat (>42°C)', limit: `₹${Math.round(plan.dailyPayout * 0.8)}/day`, active: true },
-    { icon: '💻', name: 'Platform Outage', limit: `₹${Math.round(plan.dailyPayout * 0.7)}/day`, active: true },
-    { icon: '🚗', name: 'Zone Traffic Lock', limit: `₹${Math.round(plan.dailyPayout * 0.6)}/day`, active: plan.id !== 'starter' },
-    { icon: '💨', name: 'AQI Hazard (>300)', limit: `₹${Math.round(plan.dailyPayout * 0.5)}/day`, active: plan.id === 'pro' },
+    { icon: <CloudRain size={20} />, name: 'Heavy Rainfall', limit: `₹${plan.dailyPayout}/day`, active: true },
+    { icon: <CloudRain size={20} />, name: 'Flood / Waterlogging', limit: `₹${plan.dailyPayout}/day`, active: true },
+    { icon: <Zap size={20} />, name: 'Extreme Heat (>42°C)', limit: `₹${Math.round(plan.dailyPayout * 0.8)}/day`, active: true },
+    { icon: <Activity size={20} />, name: 'Platform Outage', limit: `₹${Math.round(plan.dailyPayout * 0.7)}/day`, active: true },
+    { icon: <Activity size={20} />, name: 'Zone Traffic Lock', limit: `₹${Math.round(plan.dailyPayout * 0.6)}/day`, active: plan.id !== 'starter' },
+    { icon: <Activity size={20} />, name: 'AQI Hazard (>300)', limit: `₹${Math.round(plan.dailyPayout * 0.5)}/day`, active: plan.id === 'pro' },
   ];
 
   return (
@@ -62,7 +63,7 @@ export default function PolicyManagement({ user, onPlanChange, onToast }) {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.85, letterSpacing: '.06em' }}>ACTIVE POLICY</span>
-                <span style={{ background: 'rgba(255,255,255,.2)', padding: '2px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>✓ LIVE</span>
+                <span style={{ background: 'rgba(255,255,255,.2)', padding: '2px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>LIVE</span>
               </div>
               <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.02em' }}>{plan.name} Plan</div>
               <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>₹{plan.dailyPayout}/day · {plan.days} payout days/week · ₹{plan.cap} weekly cap</div>
@@ -77,7 +78,7 @@ export default function PolicyManagement({ user, onPlanChange, onToast }) {
                 cursor: 'pointer', fontFamily: "'Plus Jakarta Sans',sans-serif",
                 transition: 'all .15s'
               }}>
-                {showUpgrade ? 'Cancel' : '↕ Change Plan'}
+                {showUpgrade ? 'Cancel' : 'Change Plan'}
               </button>
             </div>
           </div>
@@ -89,7 +90,7 @@ export default function PolicyManagement({ user, onPlanChange, onToast }) {
               { label: 'Policy Number', value: user.policyId, color: T.text },
               { label: 'Started', value: new Date(user.policyStart).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), color: T.green },
               { label: 'Expires', value: new Date(user.policyEnd).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), color: daysLeft < 14 ? T.red : T.text },
-              { label: 'Auto-Renew', value: user.autoRenew ? 'Enabled ✓' : 'Disabled', color: user.autoRenew ? T.green : T.red },
+              { label: 'Auto-Renew', value: user.autoRenew ? 'Enabled' : 'Disabled', color: user.autoRenew ? T.green : T.red },
             ].map((item, i) => (
               <div key={i} style={{ background: T.bg, borderRadius: 10, padding: '12px 14px', border: `1px solid ${T.border}` }}>
                 <p style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, letterSpacing: '.04em', marginBottom: 4 }}>{item.label}</p>
@@ -166,7 +167,7 @@ export default function PolicyManagement({ user, onPlanChange, onToast }) {
                 border: `1px solid ${item.active ? T.border : '#E5E5E5'}`,
                 opacity: item.active ? 1 : 0.5
               }}>
-                <span style={{ fontSize: 20 }}>{item.icon}</span>
+                <span style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>
                 <div style={{ flex: 1 }}>
                   <p style={{ fontSize: 13, fontWeight: 600 }}>{item.name}</p>
                 </div>
@@ -188,7 +189,7 @@ export default function PolicyManagement({ user, onPlanChange, onToast }) {
               background: T.blueLight, border: `1px solid ${T.blue}20`,
               fontSize: 12, color: T.blue
             }}>
-              💡 Upgrade to <strong>{plan.id === 'starter' ? 'Standard' : 'Pro'}</strong> to unlock{' '}
+              Upgrade to <strong>{plan.id === 'starter' ? 'Standard' : 'Pro'}</strong> to unlock{' '}
               {plan.id === 'starter' ? 'Traffic Lock coverage' : 'AQI Hazard + all premium features'}
             </div>
           )}
@@ -204,7 +205,7 @@ export default function PolicyManagement({ user, onPlanChange, onToast }) {
             }} />
             {POLICY_HISTORY.map((item, i) => {
               const color = statusColors[item.status] || T.textMuted;
-              const icon = statusIcons[item.status] || '📋';
+              const icon = statusIcons[item.status] || <Activity size={8} />;
               return (
                 <div key={i} className="fade-up" style={{
                   position: 'relative', marginBottom: i < POLICY_HISTORY.length - 1 ? 20 : 0,

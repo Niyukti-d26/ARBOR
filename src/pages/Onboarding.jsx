@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { T, CITY_ZONES, CITIES, PLANS } from '../data/constants';
+import { CloudRain, MapPin, Shield, CheckCircle, Phone } from '../components/Icons';
 import { Spinner } from '../components/shared';
 
 function OTPInput({ length = 6, onComplete }) {
@@ -49,7 +50,7 @@ function ZonePicker({ city, zones, selected, onSelect }) {
 
   return (
     <div>
-      <p style={{ fontSize: 11, fontWeight: 700, color: T.red, marginBottom: 8, letterSpacing: '.04em' }}>🌊 FLOOD-PRONE ZONES</p>
+      <p style={{ fontSize: 11, fontWeight: 700, color: T.red, marginBottom: 8, letterSpacing: '.04em' }}>FLOOD-PRONE ZONES</p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 14 }}>
         {floodZones.map(z => (
           <div key={z.name} onClick={() => onSelect(z.name)}
@@ -61,12 +62,12 @@ function ZonePicker({ city, zones, selected, onSelect }) {
               color: selected === z.name ? T.red : T.text,
               transition: 'all .15s'
             }}>
-            <span style={{ fontSize: 14 }}>🌊</span>
+            <span style={{ fontSize: 14, display: 'flex', justifyContent: 'center' }}><CloudRain size={16} /></span>
             <p style={{ marginTop: 2 }}>{z.name}</p>
           </div>
         ))}
       </div>
-      <p style={{ fontSize: 11, fontWeight: 700, color: T.green, marginBottom: 8, letterSpacing: '.04em' }}>✅ NORMAL ZONES</p>
+      <p style={{ fontSize: 11, fontWeight: 700, color: T.green, marginBottom: 8, letterSpacing: '.04em' }}>NORMAL ZONES</p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
         {normalZones.map(z => (
           <div key={z.name} onClick={() => onSelect(z.name)}
@@ -78,7 +79,7 @@ function ZonePicker({ city, zones, selected, onSelect }) {
               color: selected === z.name ? T.green : T.text,
               transition: 'all .15s'
             }}>
-            <span style={{ fontSize: 14 }}>📍</span>
+            <span style={{ fontSize: 14, display: 'flex', justifyContent: 'center' }}><MapPin size={16} /></span>
             <p style={{ marginTop: 2 }}>{z.name}</p>
           </div>
         ))}
@@ -154,7 +155,7 @@ export default function Onboarding({ onComplete }) {
           <div style={{
             width: 42, height: 42, borderRadius: 12, background: 'rgba(255,255,255,.2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22
-          }}>🛡</div>
+          }}><Shield size={22} color="white" /></div>
           <div>
             <div style={{ fontSize: 20, fontWeight: 800 }}>ARBOR</div>
             <div style={{ fontSize: 12, opacity: .85 }}>Income Protection for Gig Workers</div>
@@ -237,7 +238,7 @@ export default function Onboarding({ onComplete }) {
                   border: `1px solid ${selectedZoneObj?.flood ? '#FFD580' : T.green + '40'}`,
                   borderRadius: 10, padding: '10px 14px', display: 'flex', gap: 8, alignItems: 'center'
                 }}>
-                  <span style={{ fontSize: 16 }}>{selectedZoneObj?.flood ? '🌊' : '✅'}</span>
+                  <span style={{ display: 'flex', alignItems: 'center' }}>{selectedZoneObj?.flood ? <CloudRain size={16} color="#7A4800" /> : <CheckCircle size={16} color="#145A28" />}</span>
                   <span style={{ fontSize: 12, color: selectedZoneObj?.flood ? '#7A4800' : '#145A28', fontWeight: 500 }}>
                     {selectedZoneObj?.flood
                       ? `${form.zone} is flood-prone — full parametric rain & flood coverage active`
@@ -272,7 +273,7 @@ export default function Onboarding({ onComplete }) {
               background: otpVerified ? T.greenLight : 'white', marginBottom: 18
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                <span style={{ fontSize: 22 }}>📱</span>
+                <span style={{ display: 'flex' }}><Phone size={22} /></span>
                 <div style={{ flex: 1 }}>
                   <p style={{ fontWeight: 700, fontSize: 14 }}>Phone Verification</p>
                   <p style={{ fontSize: 12, color: T.textMuted }}>We'll send a 6-digit OTP</p>
@@ -325,7 +326,7 @@ export default function Onboarding({ onComplete }) {
               background: aadhaarVerified ? T.greenLight : 'white'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                <span style={{ fontSize: 22 }}>🔐</span>
+                <span style={{ display: 'flex' }}><Shield size={22} /></span>
                 <div style={{ flex: 1 }}>
                   <p style={{ fontWeight: 700, fontSize: 14 }}>Aadhaar Verification (Optional)</p>
                   <p style={{ fontSize: 12, color: T.textMuted }}>For enhanced trust score & faster claims</p>
@@ -406,7 +407,7 @@ export default function Onboarding({ onComplete }) {
                 ← Back
               </button>
               <button className="btn-primary" onClick={next} disabled={loading} style={{ flex: 1 }}>
-                {loading ? <><Spinner /> Activating your shield...</> : 'Activate ARBOR 🛡'}
+                {loading ? <><Spinner /> Activating your shield...</> : 'Activate ARBOR'}
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { T, ML_MODELS } from '../data/constants';
 import { Spinner } from '../components/shared';
+import { FileText, Settings, Bot, CheckCircle, Zap } from '../components/Icons';
 
 const iconColors = { blue: T.blue, purple: "#7C3AED", green: T.green, orange: T.orange };
 
@@ -110,15 +111,15 @@ export default function MLModels() {
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>ML Pipeline Architecture</h3>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           {[
-            { label: "Data Ingestion", icon: "📥", color: T.blue },
+            { label: "Data Ingestion", icon: <FileText size={16} color={T.blue} />, color: T.blue },
             { label: "→", icon: null },
-            { label: "Feature Engineering", icon: "⚙️", color: T.orange },
+            { label: "Feature Engineering", icon: <Settings size={16} color={T.orange} />, color: T.orange },
             { label: "→", icon: null },
-            { label: "Model Training", icon: "🧠", color: "#7C3AED" },
+            { label: "Model Training", icon: <Bot size={16} color="#7C3AED" />, color: "#7C3AED" },
             { label: "→", icon: null },
-            { label: "Validation", icon: "✅", color: T.green },
+            { label: "Validation", icon: <CheckCircle size={16} color={T.green} />, color: T.green },
             { label: "→", icon: null },
-            { label: "Deployment", icon: "🚀", color: T.red },
+            { label: "Deployment", icon: <Zap size={16} color={T.red} />, color: T.red },
           ].map((step, i) => (
             step.icon === null ? (
               <span key={i} style={{ color: T.textMuted, fontSize: 18 }}>→</span>
@@ -128,7 +129,7 @@ export default function MLModels() {
                 borderRadius: 10, padding: "10px 16px",
                 display: "flex", alignItems: "center", gap: 8
               }}>
-                <span style={{ fontSize: 16 }}>{step.icon}</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{step.icon}</div>
                 <span style={{ fontSize: 12, fontWeight: 600, color: step.color }}>{step.label}</span>
               </div>
             )

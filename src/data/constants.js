@@ -209,8 +209,8 @@ export const MOCK_FRAUD_ALERTS = [
 ];
 
 export const ML_MODELS = [
-  { icon: '🧠', name: 'Income Predictor', accuracy: '94.2%', status: 'active' },
-  { icon: '🔍', name: 'Fraud Detector', accuracy: '97.8%', status: 'active' },
-  { icon: '🌦️', name: 'Weather Engine', accuracy: '91.5%', status: 'active' },
-  { icon: '📊', name: 'Trust Scorer', accuracy: '89.3%', status: 'training' },
+  { icon: 'IP', name: 'Income Predictor', accuracy: '94.2%', status: 'active' },
+  { icon: 'FD', name: 'Fraud Detector', accuracy: '97.8%', status: 'active' },
+  { icon: 'WE', name: 'Weather Engine', accuracy: '91.5%', status: 'active' },
+  { icon: 'TS', name: 'Trust Scorer', accuracy: '89.3%', status: 'training' },
 ];

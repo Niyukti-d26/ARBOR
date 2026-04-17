@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { T } from '../data/constants';
+import { Shield } from '../components/Icons';
 
 const MOCK_ADMINS = {
   'admin@arbor.com': { password: 'admin123', name: 'Arun Mehta' },
@@ -65,7 +66,7 @@ export default function AdminAuth({ onComplete }) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.9)', marginBottom: 2 }}>⚡ Hackathon Demo Mode</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.9)', marginBottom: 2 }}>Hackathon Demo Mode</div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Instant admin access — skip 2FA</div>
         </div>
         <button onClick={() => onComplete({ name: 'Arun Mehta', email: 'admin@arbor.com' })} style={{
@@ -75,7 +76,7 @@ export default function AdminAuth({ onComplete }) {
         }}>Admin Access →</button>
       </div>
       <div style={{ marginBottom: 28, textAlign: 'center' }}>
-        <div style={{ fontSize: 40, marginBottom: 8 }}>🛡</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><Shield size={40} color={T.text} /></div>
         <div style={{ fontSize: 24, fontWeight: 800, color: T.text }}>
           ARBOR
         </div>
@@ -106,8 +107,8 @@ export default function AdminAuth({ onComplete }) {
                     onKeyDown={e => e.key === 'Enter' && handleLogin()} style={{ paddingRight: 44 }} />
                   <button onClick={() => setShowPass(s => !s)} style={{
                     position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', cursor: 'pointer', fontSize: 16,
-                  }}>{showPass ? '🙈' : '👁'}</button>
+                    background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: T.textSec,
+                  }}>{showPass ? 'Hide' : 'Show'}</button>
                 </div>
               </div>
               {error && <div style={{ color: T.danger, fontSize: 12, fontWeight: 500, marginBottom: 14, padding: '8px 12px', background: T.dangerLight, borderRadius: 6 }}>{error}</div>}
@@ -115,7 +116,7 @@ export default function AdminAuth({ onComplete }) {
                 {loading ? 'Logging in...' : 'Login'}
               </button>
               <div style={{ marginTop: 14, padding: 12, background: '#FFF5F0', borderRadius: 8, fontSize: 11, color: T.textSec, lineHeight: 1.6 }}>
-                💡 <strong>Demo:</strong> <strong>admin@arbor.com</strong> / <strong>admin123</strong>
+                <strong>Demo:</strong> <strong>admin@arbor.com</strong> / <strong>admin123</strong>
               </div>
             </div>
           )}
@@ -127,7 +128,7 @@ export default function AdminAuth({ onComplete }) {
                 <div style={{ fontSize: 13, color: T.textMuted }}>Enter your 6-digit 2FA verification code</div>
               </div>
               <div style={{ textAlign: 'center', padding: '16px 0 12px' }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>🔐</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><Shield size={32} color={T.text} /></div>
                 <div style={{ fontSize: 13, color: T.textSec }}>Code sent to <strong>{email}</strong></div>
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 12 }}>
@@ -139,7 +140,7 @@ export default function AdminAuth({ onComplete }) {
                 ))}
               </div>
               <div style={{ textAlign: 'center', marginBottom: 16, padding: '8px 12px', background: '#EFF6FF', borderRadius: 8, border: '1px dashed #3B82F6' }}>
-                <span style={{ fontSize: 12, color: T.textSec }}>🔑 Demo 2FA OTP: </span>
+                <span style={{ fontSize: 12, color: T.textSec }}>Demo 2FA OTP: </span>
                 <span style={{ fontSize: 14, fontWeight: 800, color: '#3B82F6', letterSpacing: 2 }}>654321</span>
               </div>
               {error && <div style={{ color: T.danger, fontSize: 12, fontWeight: 500, marginBottom: 14, padding: '8px 12px', background: T.dangerLight, borderRadius: 6 }}>{error}</div>}

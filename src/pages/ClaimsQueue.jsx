@@ -20,11 +20,11 @@ export default function ClaimsQueue({ onToast }) {
 
   const handleApprove = (id) => {
     setClaims(cs => cs.map(c => c.id === id ? { ...c, status: 'approved' } : c));
-    onToast('✅ Claim approved — payout initiated');
+    onToast('Claim approved — payout initiated');
   };
   const handleReject = (id) => {
     setClaims(cs => cs.map(c => c.id === id ? { ...c, status: 'rejected' } : c));
-    onToast('❌ Claim rejected');
+    onToast('Claim rejected');
   };
 
   const filtered = filter === 'all' ? claims : claims.filter(c => c.status === filter);

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { T, ADMIN_DATA, RECENT_CLAIMS, PLANS } from '../data/constants';
 import { Spinner, ProgressBar, PillTag, SectionHeader } from '../components/shared';
 import { exportAdminExcel } from '../utils/exportExcel';
+import { User, CheckCircle, FileText, Money, AlertTriangle, Target } from '../components/Icons';
 
 const statusStyles = {
   paid:    [T.green, T.greenLight],
@@ -25,12 +26,12 @@ export default function Admin({ user, onToast }) {
   };
 
   const stats = [
-    { label: "Total Users",     value: ADMIN_DATA.totalUsers.toLocaleString(), icon: "👥", color: T.blue },
-    { label: "Active Today",    value: ADMIN_DATA.activeToday.toLocaleString(), icon: "✅", color: T.green },
-    { label: "Active Claims",   value: ADMIN_DATA.activeClaims.toString(),      icon: "📋", color: T.orange },
-    { label: "Paid This Week",  value: `₹${(ADMIN_DATA.paidThisWeek / 1000).toFixed(0)}K`, icon: "💸", color: T.green },
-    { label: "Fraud Alerts",    value: ADMIN_DATA.fraudAlerts.toString(),        icon: "🚨", color: T.red },
-    { label: "Avg Trust Score", value: `${ADMIN_DATA.avgTrustScore}/100`,        icon: "⭐", color: T.amber },
+    { label: "Total Users",     value: ADMIN_DATA.totalUsers.toLocaleString(), icon: <User size={20} />, color: T.blue },
+    { label: "Active Today",    value: ADMIN_DATA.activeToday.toLocaleString(), icon: <CheckCircle size={20} />, color: T.green },
+    { label: "Active Claims",   value: ADMIN_DATA.activeClaims.toString(),      icon: <FileText size={20} />, color: T.orange },
+    { label: "Paid This Week",  value: `₹${(ADMIN_DATA.paidThisWeek / 1000).toFixed(0)}K`, icon: <Money size={20} />, color: T.green },
+    { label: "Fraud Alerts",    value: ADMIN_DATA.fraudAlerts.toString(),        icon: <AlertTriangle size={20} />, color: T.red },
+    { label: "Avg Trust Score", value: `${ADMIN_DATA.avgTrustScore}/100`,        icon: <Target size={20} />, color: T.amber },
   ];
 
   return (
@@ -65,7 +66,7 @@ export default function Admin({ user, onToast }) {
         borderRadius: 12, padding: "12px 16px", marginBottom: 20,
         display: "flex", gap: 10, alignItems: "center"
       }}>
-        <span style={{ fontSize: 16 }}>📁</span>
+        <div style={{ display: 'flex' }}><FileText size={20} color="#0a5c2a" /></div>
         <p style={{ fontSize: 12, color: "#0a5c2a", lineHeight: 1.5 }}>
           Exports a <strong>4-sheet Excel</strong>: Summary, Claims, Worker Profile, Zone Risk Map
         </p>
@@ -88,7 +89,7 @@ export default function Admin({ user, onToast }) {
         borderRadius: 12, padding: "14px 16px", marginBottom: 24,
         display: "flex", gap: 10, alignItems: "center"
       }}>
-        <span style={{ fontSize: 22 }}>🚨</span>
+        <div style={{ display: 'flex' }}><AlertTriangle size={24} color={T.red} /></div>
         <div>
           <p style={{ fontSize: 14, fontWeight: 700, color: T.red }}>{ADMIN_DATA.fraudAlerts} fraud alerts require review</p>
           <p style={{ fontSize: 12, color: T.textSec }}>GPS spoofing · Trust score &lt; 40 · Duplicate claim attempt</p>

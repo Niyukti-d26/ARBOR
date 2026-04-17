@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { T } from '../data/constants';
 import { Spinner } from './shared';
+import { CheckCircle, Bot, Money } from './Icons';
 
 export default function TriggerSheet({ event, onConfirm, onDismiss }) {
   const [state, setState] = useState('idle');
@@ -16,7 +17,7 @@ export default function TriggerSheet({ event, onConfirm, onDismiss }) {
         <div className="sheet-handle" />
         {state === 'success' ? (
           <div style={{ padding: '0 24px 8px', textAlign: 'center' }} className="fade-up">
-            <div style={{ fontSize: 64, marginBottom: 12 }}>🎉</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><CheckCircle size={64} color="#60B246" /></div>
             <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Payout Initiated!</h3>
             <p style={{ fontSize: 14, color: T.textSec, marginBottom: 16 }}>
               ₹{event.lossDetected} reaching your UPI in 90 seconds
@@ -25,7 +26,7 @@ export default function TriggerSheet({ event, onConfirm, onDismiss }) {
               background: T.greenLight, borderRadius: 12, padding: '12px 16px',
               display: 'flex', alignItems: 'center', gap: 10
             }}>
-              <span style={{ fontSize: 20 }}>✅</span>
+              <CheckCircle size={20} color="#60B246" />
               <div style={{ textAlign: 'left' }}>
                 <p style={{ fontSize: 13, fontWeight: 700, color: T.green }}>Income protected</p>
                 <p style={{ fontSize: 11, color: T.textSec }}>
@@ -76,7 +77,7 @@ export default function TriggerSheet({ event, onConfirm, onDismiss }) {
               padding: '12px 14px', background: T.bg, borderRadius: 12, marginBottom: 16
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 18 }}>🤖</span>
+                <Bot size={18} color={T.text} />
                 <div>
                   <p style={{ fontSize: 12, fontWeight: 600 }}>AI confidence score</p>
                   <p style={{ fontSize: 11, color: T.textSec }}>Fraud check passed</p>
@@ -96,7 +97,7 @@ export default function TriggerSheet({ event, onConfirm, onDismiss }) {
                 <p style={{ fontSize: 11, opacity: .8 }}>Within your plan cap · 1 payout day used</p>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 40 }}>💸</div>
+                <div style={{ display: 'flex', justifyContent: 'center' }}><Money size={40} color="white" /></div>
                 <p style={{ fontSize: 10, opacity: .8, marginTop: 4 }}>To UPI</p>
               </div>
             </div>

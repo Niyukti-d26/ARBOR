@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { T, PLANS, ZONE_RISK_FACTORS, PREMIUM_FACTORS } from '../data/constants';
+import { CloudRain, Activity, Zap, CheckCircle, MapPin } from '../components/Icons';
 import { PillTag, ProgressBar } from '../components/shared';
 
 function AnimatedNumber({ value, suffix = '', prefix = '₹', duration = 1200 }) {
@@ -147,18 +148,18 @@ export default function PremiumCalculator({ user }) {
               <PillTag color={T.orange}>TRANSPARENT</PillTag>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <WaterfallBar label="Base Premium" icon="📋" value={basePrem} total={totalPremium + 20}
+              <WaterfallBar label="Base Premium" icon={<Activity size={22} color={T.blue} />} value={basePrem} total={totalPremium + 20}
                 color={T.blue} description={`Standard ${plan.name} plan rate`} delay={0} />
-              <WaterfallBar label="Zone Flood Risk" icon="🌊" value={floodAdj} total={totalPremium + 20}
+              <WaterfallBar label="Zone Flood Risk" icon={<CloudRain size={22} color={T.red} />} value={floodAdj} total={totalPremium + 20}
                 color={T.red} description={`${selectedZone} — ${zoneData.baseRisk} risk zone`} delay={60} />
-              <WaterfallBar label="Weather Surcharge" icon="🌧️" value={weatherAdj} total={totalPremium + 20}
+              <WaterfallBar label="Weather Surcharge" icon={<CloudRain size={22} color={T.amber} />} value={weatherAdj} total={totalPremium + 20}
                 color={T.amber} description={`Current monsoon season: ${weatherMultiplier.toFixed(1)}x multiplier`} delay={120} />
-              <WaterfallBar label="Traffic Density" icon="🚗" value={trafficAdj} total={totalPremium + 20}
+              <WaterfallBar label="Traffic Density" icon={<MapPin size={22} color={T.purple} />} value={trafficAdj} total={totalPremium + 20}
                 color={T.purple} description={`Zone congestion factor: ${zoneData.traffic}x`} delay={180} />
-              <WaterfallBar label="Claim History" icon="📊" value={claimAdj} total={totalPremium + 20}
+              <WaterfallBar label="Claim History" icon={<Activity size={22} color={T.orange} />} value={claimAdj} total={totalPremium + 20}
                 color={T.orange} description={`${zoneData.incidents} incidents in zone this month`} delay={240} />
               {trustDiscount < 0 && (
-                <WaterfallBar label="Trust Discount" icon="⭐" value={trustDiscount} total={totalPremium + 20}
+                <WaterfallBar label="Trust Discount" icon={<Zap size={22} color={T.green} />} value={trustDiscount} total={totalPremium + 20}
                   color={T.green} description={`Trust score: ${user.trustScore}/100 — loyalty reward`} delay={300} />
               )}
             </div>
@@ -214,7 +215,7 @@ export default function PremiumCalculator({ user }) {
           {/* Why Price Changed */}
           <div className="card" style={{ padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <span style={{ fontSize: 20 }}>💡</span>
+              <div style={{ display: 'flex', alignItems: 'center' }}><Zap size={20} color={T.text} /></div>
               <h3 style={{ fontSize: 15, fontWeight: 700 }}>Why Your Price Changed</h3>
             </div>
             {reasons.length > 0 ? (

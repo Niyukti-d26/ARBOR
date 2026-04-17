@@ -1,12 +1,13 @@
 import { useState, useRef } from 'react';
 import { T, CITY_ZONES, CITIES } from '../data/constants';
+import { Shield } from '../components/Icons';
 
 const PLATFORMS = ['Swiggy', 'Zomato', 'Uber', 'Ola', 'Zepto', 'Blinkit', 'Others'];
 const ACTIVE_HOURS = [
-  { id: 'morning', label: 'Morning', desc: '6AM – 12PM', icon: '🌅' },
-  { id: 'afternoon', label: 'Afternoon', desc: '12PM – 6PM', icon: '☀️' },
-  { id: 'night', label: 'Night', desc: '6PM – 12AM', icon: '🌙' },
-  { id: 'all', label: 'All Day', desc: 'Full Availability', icon: '⏰' },
+  { id: 'morning', label: 'Morning', desc: '6AM – 12PM' },
+  { id: 'afternoon', label: 'Afternoon', desc: '12PM – 6PM' },
+  { id: 'night', label: 'Night', desc: '6PM – 12AM' },
+  { id: 'all', label: 'All Day', desc: 'Full Availability' },
 ];
 
 // Mock worker DB
@@ -125,7 +126,7 @@ export default function WorkerAuth({ onComplete }) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.9)', marginBottom: 2 }}>⚡ Hackathon Demo Mode</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.9)', marginBottom: 2 }}>Hackathon Demo Mode</div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Skip the OTP flow instantly</div>
         </div>
         <button onClick={handleQuickDemo} style={{
@@ -136,7 +137,7 @@ export default function WorkerAuth({ onComplete }) {
       </div>
       {/* Logo */}
       <div style={{ marginBottom: 32, textAlign: 'center' }}>
-        <div style={{ fontSize: 40, marginBottom: 8 }}>🛡</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><Shield size={40} color={T.text} /></div>
         <div style={{ fontSize: 28, fontWeight: 900, color: T.text, letterSpacing: 4 }}>ARBOR</div>
           <div style={{ fontSize: 13, color: T.textMuted, marginTop: 4 }}>shelter and stability</div>
       </div>
@@ -174,7 +175,7 @@ export default function WorkerAuth({ onComplete }) {
                 {loading ? 'Verifying...' : 'Send OTP'}
               </button>
               <div style={{ marginTop: 16, padding: '12px', background: '#FFF5F0', borderRadius: 8, fontSize: 11, color: T.textSec, lineHeight: 1.5 }}>
-                💡 <strong>Demo:</strong> Use phone <strong>9876543210</strong> and Aadhaar <strong>4321</strong><br/>
+                <strong>Demo:</strong> Use phone <strong>9876543210</strong> and Aadhaar <strong>4321</strong><br/>
                 Or: <strong>9000000001</strong> / <strong>1111</strong>
               </div>
             </div>
@@ -196,7 +197,7 @@ export default function WorkerAuth({ onComplete }) {
                 ))}
               </div>
               <div style={{ textAlign: 'center', marginBottom: 16, padding: '8px 12px', background: '#FFF5F0', borderRadius: 8, border: '1px dashed #FF5200' }}>
-                <span style={{ fontSize: 12, color: T.textSec }}>🔑 Demo OTP: </span>
+                <span style={{ fontSize: 12, color: T.textSec }}>Demo OTP: </span>
                 <span style={{ fontSize: 14, fontWeight: 800, color: T.primary, letterSpacing: 2 }}>123456</span>
               </div>
               {error && <div style={{ color: T.danger, fontSize: 12, fontWeight: 500, marginBottom: 14, padding: '8px 12px', background: T.dangerLight, borderRadius: 6 }}>{error}</div>}
@@ -252,7 +253,7 @@ export default function WorkerAuth({ onComplete }) {
                 <select className="input" value={profile.zone}
                   onChange={e => setProfile(p => ({ ...p, zone: e.target.value }))}>
                   <option value="">Select zone</option>
-                  {zones.map(z => <option key={z.name} value={z.name}>{z.name}{z.flood ? ' ⚠️' : ''}</option>)}
+                  {zones.map(z => <option key={z.name} value={z.name}>{z.name}{z.flood ? ' (Risk)' : ''}</option>)}
                 </select>
               </div>
 
@@ -265,7 +266,6 @@ export default function WorkerAuth({ onComplete }) {
                       border: '1.5px solid', borderColor: profile.activeHours === h.id ? T.primary : T.border,
                       background: profile.activeHours === h.id ? '#FFF5F0' : T.white,
                     }}>
-                      <div style={{ fontSize: 16, marginBottom: 2 }}>{h.icon}</div>
                       <div style={{ fontSize: 12, fontWeight: 600, color: profile.activeHours === h.id ? T.primary : T.text }}>{h.label}</div>
                       <div style={{ fontSize: 10, color: T.textMuted }}>{h.desc}</div>
                     </div>

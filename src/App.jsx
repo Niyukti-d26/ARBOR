@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { T, PLANS, DEFAULT_USER } from './data/constants';
+import { Dashboard, CloudRain, Bell, User, Money, AlertTriangle, MapPin, FileText, Zap, Phone, Shield, Search } from './components/Icons';
 
 // Auth & Landing
 import SplashScreen from './pages/SplashScreen';
@@ -7,11 +8,12 @@ import LandingPage from './pages/LandingPage';
 import WorkerAuth from './pages/WorkerAuth';
 import AdminAuth from './pages/AdminAuth';
 
-// Worker Pages (4 + profile sheet)
+// Worker Pages (4 + profile sheet + instant payout)
 import WorkerDashboard from './pages/WorkerDashboard';
 import MyPolicy from './pages/MyPolicy';
 import Claims from './pages/Claims';
 import SimulationPanel from './pages/SimulationPanel';
+import InstantPayout from './pages/InstantPayout';
 
 // Admin Pages
 import AdminDashboard from './pages/AdminDashboard';
@@ -25,27 +27,27 @@ import ZoneRiskMap from './pages/ZoneRiskMap';
 // ── Admin Sidebar Nav ──
 const ADMIN_NAV = [
   { section: 'Overview', items: [
-    { id: 'adminDash', icon: '📊', label: 'Dashboard' },
-    { id: 'liveMonitor', icon: '🌦️', label: 'Live Monitor' },
+    { id: 'adminDash', icon: <Dashboard size={18} />, label: 'Dashboard' },
+    { id: 'liveMonitor', icon: <CloudRain size={18} />, label: 'Live Monitor' },
   ]},
   { section: 'AI Operations', items: [
-    { id: 'notifications', icon: '🔔', label: 'Notifications' },
-    { id: 'workers', icon: '👥', label: 'Workers' },
-    { id: 'payoutLedger', icon: '💸', label: 'Payout Ledger' },
+    { id: 'notifications', icon: <Bell size={18} />, label: 'Notifications' },
+    { id: 'workers', icon: <User size={18} />, label: 'Workers' },
+    { id: 'payoutLedger', icon: <Money size={18} />, label: 'Payout Ledger' },
   ]},
   { section: 'Risk & Intelligence', items: [
-    { id: 'fraud', icon: '🚨', label: 'Fraud Alerts' },
-    { id: 'zoneRisk', icon: '🗺️', label: 'Zone Risk & Triggers' },
+    { id: 'fraud', icon: <AlertTriangle size={18} />, label: 'Fraud Alerts' },
+    { id: 'zoneRisk', icon: <MapPin size={18} />, label: 'Zone Risk & Triggers' },
   ]},
 ];
 
-// ── Worker Bottom Nav (4 tabs + profile) ──
+// ── Worker Bottom Nav (5 tabs + profile) ──
 const WORKER_TABS = [
-  { id: 'workerDash', icon: '🏠', label: 'Home' },
-  { id: 'myPolicy', icon: '📑', label: 'My Policy' },
-  { id: 'claims', icon: '📋', label: 'Claims' },
-  { id: 'simulation', icon: '⚡', label: 'Simulator' },
-  { id: 'profile', icon: '👤', label: 'Profile' },
+  { id: 'workerDash', icon: <Dashboard size={20} />, label: 'Home' },
+  { id: 'myPolicy', icon: <FileText size={20} />, label: 'My Policy' },
+  { id: 'claims', icon: <FileText size={20} />, label: 'Claims' },
+  { id: 'simulation', icon: <Zap size={20} />, label: 'Simulator' },
+  { id: 'profile', icon: <User size={20} />, label: 'Profile' },
 ];
 
 // ── Worker Profile Bottom Sheet ──
@@ -56,12 +58,14 @@ function WorkerProfileSheet({ user, onLogout, onClose }) {
       {/* Backdrop */}
       <div onClick={onClose} style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-        zIndex: 200, backdropFilter: 'blur(2px)',
+        zIndex: 200, backdropFilter: 'blur(6px)',
       }} />
       {/* Sheet */}
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 201,
-        background: '#fff', borderRadius: '18px 18px 0 0',
+        background: 'rgba(255,255,255,0.92)',
+        backdropFilter: 'blur(20px) saturate(180%)',
+        borderRadius: '18px 18px 0 0',
         boxShadow: '0 -8px 40px rgba(0,0,0,0.18)',
         padding: '8px 0 20px',
         animation: 'slideUp .25s ease',
@@ -88,12 +92,12 @@ function WorkerProfileSheet({ user, onLogout, onClose }) {
         {/* Info rows */}
         <div style={{ padding: '14px 24px' }}>
           {[
-            { icon: '📍', label: 'Zone', value: `${user?.zone || 'Bellandur'}, ${user?.city || 'Bengaluru'}` },
-            { icon: '📱', label: 'Platforms', value: (user?.platforms || ['Swiggy']).join(', ') },
-            { icon: '🛡️', label: 'Policy ID', value: user?.policyId || 'GS-POL-2026-24719' },
+            { icon: <MapPin size={18} color="#FF5200" />, label: 'Zone', value: `${user?.zone || 'Bellandur'}, ${user?.city || 'Bengaluru'}` },
+            { icon: <Phone size={18} color="#FF5200" />, label: 'Platforms', value: (user?.platforms || ['Swiggy']).join(', ') },
+            { icon: <Shield size={18} color="#FF5200" />, label: 'Policy ID', value: user?.policyId || 'GS-POL-2026-24719' },
           ].map(row => (
             <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <span style={{ fontSize: 18 }}>{row.icon}</span>
+              <span style={{ display: 'flex', alignItems: 'center' }}>{row.icon}</span>
               <div>
                 <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 600 }}>{row.label}</div>
                 <div style={{ fontSize: 13, color: T.text, fontWeight: 500 }}>{row.value}</div>
@@ -108,9 +112,9 @@ function WorkerProfileSheet({ user, onLogout, onClose }) {
             width: '100%', padding: '14px', borderRadius: 10, border: 'none',
             background: 'linear-gradient(135deg, #E23744, #C0222E)',
             color: 'white', fontSize: 15, fontWeight: 700, cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif', letterSpacing: 0.3,
+            fontFamily: 'Inter, sans-serif', letterSpacing: 0.3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
           }}>
-            🚪 Logout
+            Logout
           </button>
         </div>
       </div>
@@ -120,13 +124,13 @@ function WorkerProfileSheet({ user, onLogout, onClose }) {
 
 function AdminSidebar({ activePage, onNavigate, admin, onLogout, notifCount }) {
   return (
-    <aside style={{
-      width: 250, minHeight: '100vh', background: '#fff',
-      borderRight: `1px solid ${T.border}`, display: 'flex',
-      flexDirection: 'column', position: 'fixed', top: 0, left: 0, zIndex: 100,
+    <aside className="glass-sidebar" style={{
+      width: 250, minHeight: '100vh',
+      display: 'flex', flexDirection: 'column',
+      position: 'fixed', top: 0, left: 0, zIndex: 100,
     }}>
       {/* Logo */}
-      <div style={{ padding: '20px 20px 16px', borderBottom: `1px solid ${T.border}` }}>
+      <div style={{ padding: '20px 20px 16px', borderBottom: `1px solid rgba(240,240,240,0.5)` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 36, height: 36, borderRadius: 10, background: T.primary,
@@ -166,13 +170,14 @@ function AdminSidebar({ activePage, onNavigate, admin, onLogout, notifCount }) {
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
                   marginBottom: 2, transition: 'all .15s',
-                  background: activePage === item.id ? '#FFF5F0' : 'transparent',
+                  background: activePage === item.id ? 'rgba(255,82,0,0.08)' : 'transparent',
                   color: activePage === item.id ? T.primary : T.textSec,
                   fontWeight: activePage === item.id ? 600 : 500,
                   fontSize: 13,
+                  backdropFilter: activePage === item.id ? 'blur(4px)' : 'none',
                 }}
               >
-                <span style={{ fontSize: 16, width: 22, textAlign: 'center', position: 'relative' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, position: 'relative' }}>
                   {item.icon}
                   {/* Notification badge */}
                   {item.id === 'notifications' && notifCount > 0 && (
@@ -183,7 +188,7 @@ function AdminSidebar({ activePage, onNavigate, admin, onLogout, notifCount }) {
                       padding: '1px 5px', minWidth: 16, textAlign: 'center',
                     }}>{notifCount}</span>
                   )}
-                </span>
+                </div>
                 {item.label}
                 {item.id === 'notifications' && notifCount > 0 && (
                   <span style={{
@@ -199,8 +204,8 @@ function AdminSidebar({ activePage, onNavigate, admin, onLogout, notifCount }) {
       </nav>
 
       {/* Footer */}
-      <div style={{ padding: 16, borderTop: `1px solid ${T.border}` }}>
-        <div style={{ background: T.bg, borderRadius: 10, padding: 12, border: `1px solid ${T.border}` }}>
+      <div style={{ padding: 16, borderTop: `1px solid rgba(240,240,240,0.5)` }}>
+        <div style={{ background: 'rgba(250,250,250,0.6)', backdropFilter: 'blur(8px)', borderRadius: 10, padding: 12, border: `1px solid rgba(240,240,240,0.4)` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
             <div style={{
               width: 36, height: 36, borderRadius: '50%', background: T.primary,
@@ -232,9 +237,8 @@ function AdminTopbar({ title }) {
   }, []);
 
   return (
-    <div style={{
-      position: 'sticky', top: 0, background: 'rgba(255,255,255,0.97)',
-      backdropFilter: 'blur(8px)', borderBottom: `1px solid ${T.border}`,
+    <div className="glass-topbar" style={{
+      position: 'sticky', top: 0,
       padding: '0 28px', height: 56, display: 'flex',
       alignItems: 'center', justifyContent: 'space-between', zIndex: 50,
     }}>
@@ -245,15 +249,17 @@ function AdminTopbar({ title }) {
         </span>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6,
-          background: '#EDF7EA', borderRadius: 6, padding: '4px 10px',
+          background: 'rgba(237,247,234,0.7)', borderRadius: 6, padding: '4px 10px',
           fontSize: 12, fontWeight: 600, color: '#60B246',
+          backdropFilter: 'blur(4px)',
         }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#60B246', animation: 'pulse 2s infinite' }} />
           All Systems Live
         </div>
         <div style={{
-          background: '#FFF5F0', borderRadius: 6, padding: '4px 10px',
-          fontSize: 12, fontWeight: 600, color: T.primary, border: '1px solid #FFD5C2',
+          background: 'rgba(255,245,240,0.7)', borderRadius: 6, padding: '4px 10px',
+          fontSize: 12, fontWeight: 600, color: T.primary, border: '1px solid rgba(255,213,194,0.5)',
+          backdropFilter: 'blur(4px)',
         }}>
           52,841 Workers
         </div>
@@ -264,10 +270,10 @@ function AdminTopbar({ title }) {
 
 function WorkerBottomNav({ active, onChange }) {
   return (
-    <div style={{
-      display: 'flex', background: '#fff', borderTop: `1px solid ${T.border}`,
+    <div className="glass-nav" style={{
+      display: 'flex',
       position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
-      boxShadow: '0 -2px 12px rgba(0,0,0,0.06)',
+      boxShadow: '0 -2px 20px rgba(0,0,0,0.08)',
     }}>
       {WORKER_TABS.map(tab => (
         <button key={tab.id}
@@ -286,7 +292,7 @@ function WorkerBottomNav({ active, onChange }) {
               width: 24, height: 3, background: T.primary, borderRadius: '0 0 3px 3px',
             }} />
           )}
-          <span style={{ fontSize: 20 }}>{tab.icon}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{tab.icon}</div>
           {tab.label}
         </button>
       ))}
@@ -297,8 +303,7 @@ function WorkerBottomNav({ active, onChange }) {
 function WorkerTopbar({ user }) {
   const plan = PLANS.find(p => p.id === user?.plan) || PLANS[1];
   return (
-    <div style={{
-      background: '#fff', borderBottom: `1px solid ${T.border}`,
+    <div className="glass-topbar" style={{
       padding: '12px 16px', display: 'flex', alignItems: 'center',
       justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50,
     }}>
@@ -322,16 +327,18 @@ function WorkerTopbar({ user }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 5,
-          background: '#EDF7EA', borderRadius: 6, padding: '4px 8px',
+          background: 'rgba(237,247,234,0.7)', borderRadius: 6, padding: '4px 8px',
           fontSize: 11, fontWeight: 700, color: '#60B246',
+          backdropFilter: 'blur(4px)',
         }}>
           <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#60B246', animation: 'pulse 2s infinite' }} />
           Protected
         </div>
         <div style={{
-          background: '#FFF5F0', color: T.primary, fontSize: 11,
+          background: 'rgba(255,245,240,0.7)', color: T.primary, fontSize: 11,
           fontWeight: 700, padding: '4px 10px', borderRadius: 6,
-          border: `1px solid #FFD5C2`,
+          border: `1px solid rgba(255,213,194,0.5)`,
+          backdropFilter: 'blur(4px)',
         }}>{plan.name}</div>
         <div style={{
           width: 34, height: 34, borderRadius: '50%', background: T.primary,
@@ -340,6 +347,40 @@ function WorkerTopbar({ user }) {
         }}>{(user?.name || 'R')[0]}</div>
       </div>
     </div>
+  );
+}
+
+// ── Floating Action Button ──
+function FloatingActionButton({ onAction }) {
+  const [open, setOpen] = useState(false);
+  
+  return (
+    <>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 148 }} />
+          <div className="fab-menu" style={{ bottom: 140, right: 20 }}>
+            {[
+              { icon: <CloudRain size={18} />, label: 'Simulate Rainstorm', action: 'rain' },
+              { icon: <Money size={18} />, label: 'Instant Payout', action: 'payout' },
+              { icon: <Search size={18} />, label: 'Test Fraud Detection', action: 'fraud' },
+            ].map(item => (
+              <div key={item.action} className="fab-menu-item" onClick={() => { onAction(item.action); setOpen(false); }}>
+                <span style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>
+                {item.label}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      <button
+        className="fab"
+        style={{ bottom: 80, right: 20 }}
+        onClick={() => setOpen(!open)}
+      >
+        {open ? '✕' : '⚡'}
+      </button>
+    </>
   );
 }
 
@@ -422,6 +463,19 @@ export default function App() {
     }
   }, []);
 
+  // FAB actions
+  const handleFabAction = useCallback((action) => {
+    if (action === 'rain') {
+      setActivePage('simulation');
+      showToast('Navigate to Simulator — fire a rainstorm trigger!');
+    } else if (action === 'payout') {
+      setActivePage('instantPayout');
+    } else if (action === 'fraud') {
+      setActivePage('simulation');
+      showToast('Navigate to Simulator — test fraud detection!');
+    }
+  }, [showToast]);
+
   // Full-screen screens
   if (screen === 'splash') return <SplashScreen onComplete={() => setScreen('landing')} />;
   if (screen === 'landing') return <LandingPage onSelectRole={(r) => setScreen(r === 'admin' ? 'adminAuth' : 'workerAuth')} />;
@@ -436,6 +490,7 @@ export default function App() {
         case 'myPolicy': return <MyPolicy user={user} onPlanChange={handlePlanChange} onToast={showToast} />;
         case 'claims': return <Claims user={user} onToast={showToast} />;
         case 'simulation': return <SimulationPanel user={user} onToast={showToast} />;
+        case 'instantPayout': return <InstantPayout user={user} onToast={showToast} onClose={() => setActivePage('workerDash')} />;
         default: return <WorkerDashboard user={user} onNavigate={setActivePage} onToast={showToast} />;
       }
     };
@@ -444,6 +499,10 @@ export default function App() {
         <WorkerTopbar user={user} />
         {renderWorkerPage()}
         <WorkerBottomNav active={activePage} onChange={handleTabChange} />
+        
+        {/* Floating Action Button */}
+        <FloatingActionButton onAction={handleFabAction} />
+        
         {/* Worker Profile Sheet */}
         {showProfile && (
           <WorkerProfileSheet
@@ -454,8 +513,8 @@ export default function App() {
         )}
         {toast && (
           <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 9999 }}>
-            <div style={{
-              background: T.text, color: '#fff', fontSize: 13, fontWeight: 500,
+            <div className="glass-dark" style={{
+              fontSize: 13, fontWeight: 500,
               padding: '10px 20px', borderRadius: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
               whiteSpace: 'nowrap', animation: 'fadeUp .3s ease',
             }}>{toast}</div>
@@ -488,8 +547,8 @@ export default function App() {
       </div>
       {toast && (
         <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 9999 }}>
-          <div style={{
-            background: T.text, color: '#fff', fontSize: 13, fontWeight: 500,
+          <div className="glass-dark" style={{
+            fontSize: 13, fontWeight: 500,
             padding: '10px 20px', borderRadius: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
             whiteSpace: 'nowrap', animation: 'fadeUp .3s ease',
           }}>{toast}</div>

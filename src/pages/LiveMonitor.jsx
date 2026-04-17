@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { T, getMockWeather, CITIES } from '../data/constants';
+import { Search, MapPin, CloudRain, Thermometer, AlertTriangle, RefreshCw } from '../components/Icons';
 
 const OWM_API_KEY = '0a747540101ae72eb9b0c97f65f8513b';
 const CITY_LIST = CITIES;
@@ -125,8 +126,10 @@ export default function LiveMonitor({ onToast }) {
           <div style={{ flex: 1, position: 'relative' }}>
             <span style={{
               position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-              fontSize: 16, color: T.textMuted,
-            }}>🔍</span>
+              color: T.textMuted, display: 'flex'
+            }}>
+              <Search size={16} />
+            </span>
             <input
               ref={searchRef}
               type="text"
@@ -169,7 +172,7 @@ export default function LiveMonitor({ onToast }) {
               background: '#EFF6FF', border: '1px solid #BFDBFE',
               fontSize: 11, fontWeight: 600, color: '#1D4ED8',
             }}>
-              🌐 Live: {searchResult.cityName}
+              <MapPin size={12} /> Live: {searchResult.cityName}
             </div>
           )}
         </div>
@@ -189,8 +192,8 @@ export default function LiveMonitor({ onToast }) {
         <button onClick={() => { fetchWeather(); setSearchResult(null); }} style={{
           background: T.primary, color: 'white', border: 'none', borderRadius: 7,
           padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-          fontFamily: 'Inter, sans-serif',
-        }}>↻ Refresh</button>
+          fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: 6
+        }}><RefreshCw size={12} /> Refresh</button>
       </div>
 
       {/* City Grid */}
@@ -216,8 +219,8 @@ export default function LiveMonitor({ onToast }) {
                 {isAlert && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#E23744', animation: 'pulse 1.5s infinite' }} />}
               </div>
               <div style={{ fontSize: 24, fontWeight: 800, color: T.text }}>{w.temperature}°C</div>
-              <div style={{ fontSize: 11, color: T.textSec, marginTop: 4 }}>
-                🌧 {w.rainfall}mm · AQI {w.aqi}
+              <div style={{ fontSize: 11, color: T.textSec, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <CloudRain size={12} /> {w.rainfall}mm · AQI {w.aqi}
               </div>
             </div>
           );
@@ -239,7 +242,7 @@ export default function LiveMonitor({ onToast }) {
                   padding: '3px 8px', borderRadius: 5, background: '#EFF6FF',
                   fontSize: 10, fontWeight: 700, color: '#1D4ED8',
                 }}>
-                  🌐 LIVE API
+                  <MapPin size={12} /> LIVE API
                 </div>
               )}
             </div>
@@ -252,8 +255,8 @@ export default function LiveMonitor({ onToast }) {
               <div style={{ textAlign: 'center', padding: 14, background: T.bg, borderRadius: 8 }}>
                 <div style={{ fontSize: 11, color: T.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Rainfall</div>
                 <div style={{ fontSize: 32, fontWeight: 800, color: selected.rainfall > 20 ? '#3B82F6' : T.text }}>{selected.rainfall}mm</div>
-                <div style={{ fontSize: 11, color: selected.rainfall > 20 ? '#3B82F6' : T.textMuted }}>
-                  {selected.rainfall > 20 ? '⚠ Heavy rain trigger' : 'Normal'}
+                <div style={{ fontSize: 11, color: selected.rainfall > 20 ? '#3B82F6' : T.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                  {selected.rainfall > 20 ? <><AlertTriangle size={11} /> Heavy rain trigger</> : 'Normal'}
                 </div>
               </div>
               <div style={{ textAlign: 'center', padding: 14, background: aqiInfo.bg, borderRadius: 8 }}>
@@ -273,20 +276,20 @@ export default function LiveMonitor({ onToast }) {
           <div className="card" style={{ padding: 20 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 16 }}>Active Trigger Logic</div>
             {selected.rainfall > 20 && (
-              <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '10px 12px', marginBottom: 14, fontSize: 12, color: '#1D4ED8' }}>
-                ℹ️ Rainfall &gt;20mm detected — <strong>Heat trigger is automatically disabled</strong> to prevent duplicate payouts.
+              <div style={{ display: 'flex', gap: 8, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '10px 12px', marginBottom: 14, fontSize: 12, color: '#1D4ED8' }}>
+                <AlertTriangle size={16} /> <div>Rainfall &gt;20mm detected — <strong>Heat trigger is automatically disabled</strong> to prevent duplicate payouts.</div>
               </div>
             )}
             {selected.temperature > 40 && selected.rainfall <= 20 && (
-              <div style={{ background: '#FEF0F1', border: '1px solid #FCA5A5', borderRadius: 8, padding: '10px 12px', marginBottom: 14, fontSize: 12, color: '#991B1B' }}>
-                ℹ️ Temp &gt;40°C detected — <strong>Rain trigger is automatically disabled</strong>.
+              <div style={{ display: 'flex', gap: 8, background: '#FEF0F1', border: '1px solid #FCA5A5', borderRadius: 8, padding: '10px 12px', marginBottom: 14, fontSize: 12, color: '#991B1B' }}>
+                <AlertTriangle size={16} /> <div>Temp &gt;40°C detected — <strong>Rain trigger is automatically disabled</strong>.</div>
               </div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
-                { key: 'rain', label: 'Heavy Rainfall', icon: '🌧️', active: selected.rainfall > 20, value: `${selected.rainfall}mm`, threshold: '>20mm', disabled: selected.temperature > 40 },
-                { key: 'heat', label: 'Extreme Heat', icon: '🌡️', active: selected.temperature > 40, value: `${selected.temperature}°C`, threshold: '>40°C', disabled: selected.rainfall > 20 },
-                { key: 'aqi', label: 'AQI Emergency', icon: '😷', active: selected.aqi > 200, value: selected.aqi, threshold: '>200', disabled: false },
+                { key: 'rain', label: 'Heavy Rainfall', icon: <CloudRain size={20} color={selected.rainfall > 20 ? "#3B82F6" : "currentColor"} />, active: selected.rainfall > 20, value: `${selected.rainfall}mm`, threshold: '>20mm', disabled: selected.temperature > 40 },
+                { key: 'heat', label: 'Extreme Heat', icon: <Thermometer size={20} color={selected.temperature > 40 ? "#E23744" : "currentColor"} />, active: selected.temperature > 40, value: `${selected.temperature}°C`, threshold: '>40°C', disabled: selected.rainfall > 20 },
+                { key: 'aqi', label: 'AQI Emergency', icon: <AlertTriangle size={20} color={selected.aqi > 200 ? "#F59E0B" : "currentColor"} />, active: selected.aqi > 200, value: selected.aqi, threshold: '>200', disabled: false },
               ].map(tr => (
                 <div key={tr.key} style={{
                   display: 'flex', alignItems: 'center', padding: '10px 12px', borderRadius: 8,
@@ -294,7 +297,7 @@ export default function LiveMonitor({ onToast }) {
                   border: `1px solid ${tr.disabled ? T.border : tr.active ? (tr.key === 'rain' ? '#BFDBFE' : tr.key === 'heat' ? '#FCA5A5' : '#FCD34D') : T.border}`,
                   opacity: tr.disabled ? 0.5 : 1,
                 }}>
-                  <span style={{ fontSize: 20, marginRight: 10 }}>{tr.icon}</span>
+                  <div style={{ marginRight: 10, display: 'flex', alignItems: 'center' }}>{tr.icon}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{tr.label}</div>
                     <div style={{ fontSize: 11, color: T.textMuted }}>Threshold: {tr.threshold} · Now: {tr.value}</div>

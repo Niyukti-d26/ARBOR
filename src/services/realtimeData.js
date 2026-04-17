@@ -327,16 +327,16 @@ class RealtimeDataService {
     const now = new Date().toLocaleTimeString('en-IN');
 
     if (w.rainfall > 50 && !this._recentTrigger('rainfall')) {
-      this._fireTrigger({ type: 'rainfall', icon: '🌧️', title: 'Heavy Rainfall Alert', value: `${w.rainfall}mm/hr`, threshold: '50mm/hr', severity: 'high', time: now });
+      this._fireTrigger({ type: 'rainfall', icon: 'rain', title: 'Heavy Rainfall Alert', value: `${w.rainfall}mm/hr`, threshold: '50mm/hr', severity: 'high', time: now });
     }
     if (a.aqi > 300 && !this._recentTrigger('aqi')) {
-      this._fireTrigger({ type: 'aqi', icon: '💨', title: 'AQI Emergency', value: `AQI ${a.aqi}`, threshold: 'AQI 300', severity: 'critical', time: now });
+      this._fireTrigger({ type: 'aqi', icon: 'aqi', title: 'AQI Emergency', value: `AQI ${a.aqi}`, threshold: 'AQI 300', severity: 'critical', time: now });
     }
     if (w.heatIndex > 46 && !this._recentTrigger('heat')) {
-      this._fireTrigger({ type: 'heat', icon: '🌡️', title: 'Extreme Heat Alert', value: `${w.heatIndex}°C heat index`, threshold: '46°C', severity: 'high', time: now });
+      this._fireTrigger({ type: 'heat', icon: 'heat', title: 'Extreme Heat Alert', value: `${w.heatIndex}°C heat index`, threshold: '46°C', severity: 'high', time: now });
     }
     if (t.congestion > 8 && !this._recentTrigger('traffic')) {
-      this._fireTrigger({ type: 'traffic', icon: '🚗', title: 'Zone Congestion Lock', value: `${t.congestion}/10`, threshold: '8/10', severity: 'medium', time: now });
+      this._fireTrigger({ type: 'traffic', icon: 'traffic', title: 'Zone Congestion Lock', value: `${t.congestion}/10`, threshold: '8/10', severity: 'medium', time: now });
     }
   }
 
@@ -354,11 +354,11 @@ class RealtimeDataService {
   simulateTrigger(type) {
     const now = new Date().toLocaleTimeString('en-IN');
     const triggers = {
-      rainfall: () => { this.weather.baseRainfall = 60 + Math.random() * 30; this._fireTrigger({ type: 'rainfall', icon: '🌧️', title: 'Heavy Rainfall', value: `${this.weather.baseRainfall.toFixed(1)}mm/hr`, threshold: '50mm/hr', severity: 'high', time: now }); },
-      aqi: () => { this.aqi.baseAQI = 350 + Math.random() * 100; this._fireTrigger({ type: 'aqi', icon: '💨', title: 'AQI Emergency', value: `AQI ${this.aqi.baseAQI.toFixed(0)}`, threshold: 'AQI 300', severity: 'critical', time: now }); },
-      heat: () => { this.weather.baseTemp = 44 + Math.random() * 4; this._fireTrigger({ type: 'heat', icon: '🌡️', title: 'Extreme Heat', value: `${this.weather.baseTemp.toFixed(1)}°C`, threshold: '42°C', severity: 'high', time: now }); },
-      platform: (name) => { this.platforms.simulateOutage(name || 'Swiggy'); this._fireTrigger({ type: 'platform', icon: '📵', title: `${name || 'Swiggy'} Outage`, value: 'Platform Down', threshold: '>30min', severity: 'critical', time: now }); },
-      traffic: () => { this.traffic.congestion = 8.5 + Math.random() * 1.5; this._fireTrigger({ type: 'traffic', icon: '🚧', title: 'Zone Lockdown', value: `${this.traffic.congestion.toFixed(1)}/10`, threshold: '8/10', severity: 'high', time: now }); },
+      rainfall: () => { this.weather.baseRainfall = 60 + Math.random() * 30; this._fireTrigger({ type: 'rainfall', icon: 'rain', title: 'Heavy Rainfall', value: `${this.weather.baseRainfall.toFixed(1)}mm/hr`, threshold: '50mm/hr', severity: 'high', time: now }); },
+      aqi: () => { this.aqi.baseAQI = 350 + Math.random() * 100; this._fireTrigger({ type: 'aqi', icon: 'aqi', title: 'AQI Emergency', value: `AQI ${this.aqi.baseAQI.toFixed(0)}`, threshold: 'AQI 300', severity: 'critical', time: now }); },
+      heat: () => { this.weather.baseTemp = 44 + Math.random() * 4; this._fireTrigger({ type: 'heat', icon: 'heat', title: 'Extreme Heat', value: `${this.weather.baseTemp.toFixed(1)}°C`, threshold: '42°C', severity: 'high', time: now }); },
+      platform: (name) => { this.platforms.simulateOutage(name || 'Swiggy'); this._fireTrigger({ type: 'platform', icon: 'platform', title: `${name || 'Swiggy'} Outage`, value: 'Platform Down', threshold: '>30min', severity: 'critical', time: now }); },
+      traffic: () => { this.traffic.congestion = 8.5 + Math.random() * 1.5; this._fireTrigger({ type: 'traffic', icon: 'traffic', title: 'Zone Lockdown', value: `${this.traffic.congestion.toFixed(1)}/10`, threshold: '8/10', severity: 'high', time: now }); },
     };
     triggers[type]?.();
     this._notifyListeners();

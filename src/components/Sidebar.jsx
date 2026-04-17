@@ -1,26 +1,27 @@
 import { T, PLANS } from '../data/constants';
 import { TrustBadge } from './shared';
+import { Dashboard, CloudRain, Zap, Money, FileText, Target, Link, Bot, Search, Settings, User, Shield } from './Icons';
 
 const NAV_ITEMS = [
   { section: "Overview", items: [
-    { id: "dashboard", icon: "📊", label: "Dashboard" },
-    { id: "realtime",  icon: "🌦️", label: "Live Monitor", badge: "LIVE" },
-    { id: "claims",    icon: "⚡", label: "Claims" },
+    { id: "dashboard", icon: <Dashboard size={18} />, label: "Dashboard" },
+    { id: "realtime",  icon: <CloudRain size={18} />, label: "Live Monitor", badge: "LIVE" },
+    { id: "claims",    icon: <Zap size={18} />, label: "Claims" },
   ]},
   { section: "Protection", items: [
-    { id: "premium",  icon: "💰", label: "Premium Calc", badge: "NEW" },
-    { id: "policy",   icon: "📑", label: "My Policy", badge: "NEW" },
-    { id: "plans",    icon: "🎯", label: "Plans" },
-    { id: "triggers", icon: "🔗", label: "Triggers" },
+    { id: "premium",  icon: <Money size={18} />, label: "Premium Calc", badge: "NEW" },
+    { id: "policy",   icon: <FileText size={18} />, label: "My Policy", badge: "NEW" },
+    { id: "plans",    icon: <Target size={18} />, label: "Plans" },
+    { id: "triggers", icon: <Link size={18} />, label: "Triggers" },
   ]},
   { section: "Intelligence", items: [
-    { id: "ml",    icon: "🤖", label: "ML Models" },
-    { id: "fraud", icon: "🔍", label: "Fraud Detection" },
+    { id: "ml",    icon: <Bot size={18} />, label: "ML Models" },
+    { id: "fraud", icon: <Search size={18} />, label: "Fraud Detection" },
   ]},
   { section: "Settings", items: [
-    { id: "payment",    icon: "💳", label: "Payments", badge: "NEW" },
-    { id: "admin",      icon: "⚙️", label: "Admin Panel" },
-    { id: "onboarding", icon: "👤", label: "Profile" },
+    { id: "payment",    icon: <FileText size={18} />, label: "Payments", badge: "NEW" },
+    { id: "admin",      icon: <Settings size={18} />, label: "Admin Panel" },
+    { id: "onboarding", icon: <User size={18} />, label: "Profile" },
   ]},
 ];
 
@@ -35,8 +36,8 @@ export default function Sidebar({ activePage, onNavigate, user }) {
             width: 36, height: 36, borderRadius: 10,
             background: `linear-gradient(135deg, ${T.orange}, #FF8C5A)`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 18, color: "white"
-          }}>🛡</div>
+            color: "white"
+          }}><Shield size={20} /></div>
           <div>
             <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.5px" }}>
               Gig<span style={{ color: T.orange }}>Shield</span>

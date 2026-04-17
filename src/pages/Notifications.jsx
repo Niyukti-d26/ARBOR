@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { T } from '../data/constants';
 import { eventBus, EVENTS } from '../utils/eventBus';
 import { readState, EVENT_NAME } from '../utils/cropInsuranceState';
+import { CheckCircle, AlertTriangle, Bot } from '../components/Icons';
 
 // Static seed notifications (only auto-paid and fraud — NO needs-input)
 const SEED_NOTIFICATIONS = [
@@ -47,7 +48,7 @@ const SEED_NOTIFICATIONS = [
 
 const TYPE_CONFIG = {
   'auto-paid': {
-    icon: '✅',
+    icon: <CheckCircle size={24} color="#60B246" />,
     label: 'AUTO-PAID',
     labelColor: '#60B246',
     labelBg: '#EDF7EA',
@@ -55,7 +56,7 @@ const TYPE_CONFIG = {
     bg: '#FAFFFA',
   },
   'fraud': {
-    icon: '🚨',
+    icon: <AlertTriangle size={24} color="#E23744" />,
     label: 'FRAUD BLOCKED',
     labelColor: '#E23744',
     labelBg: '#FEF0F1',
@@ -205,8 +206,8 @@ export default function Notifications({ onToast, onUnreadChange }) {
 
   const FILTERS = [
     { id: 'all', label: 'All' },
-    { id: 'auto-paid', label: '✅ Auto-Paid' },
-    { id: 'fraud', label: '🚨 Fraud Blocked' },
+    { id: 'auto-paid', label: <div style={{display: 'flex', alignItems: 'center', gap: 6}}><CheckCircle size={14} /> Auto-Paid</div> },
+    { id: 'fraud', label: <div style={{display: 'flex', alignItems: 'center', gap: 6}}><AlertTriangle size={14} /> Fraud Blocked</div> },
   ];
 
   const filtered = filter === 'all' ? notifications : notifications.filter(n => n.type === filter);
@@ -274,7 +275,7 @@ export default function Notifications({ onToast, onUnreadChange }) {
         padding: '12px 16px', marginBottom: 16,
         display: 'flex', alignItems: 'center', gap: 12,
       }}>
-        <div style={{ fontSize: 24 }}>🤖</div>
+        <Bot size={28} color={T.text} />
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>AI Handles 100% of Claims Automatically</div>
           <div style={{ fontSize: 12, color: T.textSec }}>
@@ -286,7 +287,7 @@ export default function Notifications({ onToast, onUnreadChange }) {
       {/* Notifications List */}
       {filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '48px 20px', color: T.textMuted }}>
-          <div style={{ fontSize: 36, marginBottom: 8 }}>🎉</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><CheckCircle size={36} color={T.textMuted} /></div>
           <div style={{ fontSize: 14, fontWeight: 600 }}>No notifications yet</div>
           <div style={{ fontSize: 12, marginTop: 4 }}>Trigger a simulation to see live updates here</div>
         </div>

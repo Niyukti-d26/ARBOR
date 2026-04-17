@@ -3,13 +3,14 @@ import { T, MOCK_CLAIMS, PLANS } from '../data/constants';
 import { fraudDetector } from '../utils/fraudDetector';
 import { eventBus, EVENTS } from '../utils/eventBus';
 import { readState, EVENT_NAME, addPayout, addFraudEvent, addNotification } from '../utils/cropInsuranceState';
+import { Search, Bot, CheckCircle, Money, Zap, Activity, Shield, FileText, XCircle } from '../components/Icons';
 
 // ── 4-Stage progress stepper config ──
 const CLAIM_STAGES = [
-  { key: 'Detected',     icon: '🔍', label: 'Detected',          color: '#E23744', bg: '#FEF0F1', border: '#FBBBBC' },
-  { key: 'AI Verifying', icon: '🤖', label: 'AI Verifying',      color: '#F59E0B', bg: '#FFFBEB', border: '#FCD34D' },
-  { key: 'Approved',     icon: '✅', label: 'Approved',           color: '#3B82F6', bg: '#EFF6FF', border: '#BFDBFE' },
-  { key: 'Paid',         icon: '💸', label: `Paid to UPI`,        color: '#60B246', bg: '#EDF7EA', border: '#B7DFB0' },
+  { key: 'Detected',     icon: <Search size={20} />, label: 'Detected',          color: '#E23744', bg: '#FEF0F1', border: '#FBBBBC' },
+  { key: 'AI Verifying', icon: <Bot size={20} />, label: 'AI Verifying',      color: '#F59E0B', bg: '#FFFBEB', border: '#FCD34D' },
+  { key: 'Approved',     icon: <CheckCircle size={20} />, label: 'Approved',           color: '#3B82F6', bg: '#EFF6FF', border: '#BFDBFE' },
+  { key: 'Paid',         icon: <Money size={20} />, label: `Paid to UPI`,        color: '#60B246', bg: '#EDF7EA', border: '#B7DFB0' },
 ];
 
 const STAGE_INDEX = { Detected: 0, 'AI Verifying': 1, Approved: 2, Paid: 3 };
@@ -74,7 +75,7 @@ function LiveStepper({ claim }) {
                   textAlign: 'center', whiteSpace: 'nowrap',
                   transition: 'color .4s',
                 }}>
-                  {i === 3 ? `₹${claim.amount} Paid 💸` : stage.label}
+                  {i === 3 ? `₹${claim.amount} Paid` : stage.label}
                 </div>
               </div>
               {/* Connector line */}
@@ -105,8 +106,8 @@ const AI_PROCESS_STEPS = [
 function AIProcessingSteps({ steps, currentStep }) {
   return (
     <div style={{ marginTop: 12, padding: '12px 14px', background: '#F8F9FF', borderRadius: 8, border: '1px solid #E0E7FF' }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#6366F1', marginBottom: 8, letterSpacing: 0.5 }}>
-        🤖 AI FRAUD ANALYSIS
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#6366F1', marginBottom: 8, letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Bot size={14} /> AI FRAUD ANALYSIS
       </div>
       {steps.map((step, i) => (
         <div key={i} style={{
@@ -166,7 +167,7 @@ export default function Claims({ user, onToast }) {
         setClaimState('paid');
         setPipelineStep(2);
         setShowConfetti(true);
-        onToast(`💸 ₹${plan.dailyPayout} approved by admin — payout sent!`);
+        onToast(`₹${plan.dailyPayout} approved by admin — payout sent!`);
         setTimeout(() => setShowConfetti(false), 3000);
       } else {
         setClaimState('fraud-blocked');
@@ -198,7 +199,7 @@ export default function Claims({ user, onToast }) {
     if (result.fraudScore > 0.7) {
       setClaimState('fraud-blocked');
       setFraudDetails(result);
-      onToast('🚨 Claim blocked — fraud detected by AI');
+      onToast('Claim blocked — fraud detected by AI');
 
       // Push to shared state → FraudAlerts + Admin
       addFraudEvent({
@@ -235,7 +236,7 @@ export default function Claims({ user, onToast }) {
       setPipelineStep(2);
       setClaimState('paid');
       setShowConfetti(true);
-      onToast(`💸 ₹${plan.dailyPayout} auto-approved by AI — sent to UPI!`);
+      onToast(`₹${plan.dailyPayout} auto-approved by AI — sent to UPI!`);
       setTimeout(() => setShowConfetti(false), 3000);
 
       // Push to shared state → PayoutLedger + Notifications + Admin
@@ -287,7 +288,7 @@ export default function Claims({ user, onToast }) {
                 animation: i === currentStep ? 'stepPulse 1.5s infinite' : 'none',
                 transition: 'all .4s',
               }}>
-                {i < currentStep ? '✓' : i === 0 ? '📡' : i === 1 ? '🔍' : '💸'}
+                {i < currentStep ? <CheckCircle size={20} color="white" /> : i === 0 ? <Activity size={20} /> : i === 1 ? <Search size={20} /> : <Money size={20} />}
               </div>
               <div style={{ fontSize: 11, fontWeight: 600, color: i <= currentStep ? T.text : T.textMuted, textAlign: 'center' }}>{step}</div>
             </div>
@@ -323,7 +324,9 @@ export default function Claims({ user, onToast }) {
           padding: '14px 18px', marginBottom: 16,
           display: 'flex', alignItems: 'center', gap: 12,
         }}>
-          <span style={{ fontSize: 28 }}>{activeTrigger.icon || '⚡'}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: '50%', background: '#FDE68A', color: '#D97706' }}>
+            {activeTrigger.icon ? <span style={{ fontSize: 28 }}>{activeTrigger.icon}</span> : <Zap size={24} />}
+          </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#92400E' }}>Disruption Detected</div>
             <div style={{ fontSize: 12, color: '#78350F' }}>{activeTrigger.label} in your zone · {user?.zone}</div>
@@ -361,7 +364,7 @@ export default function Claims({ user, onToast }) {
                   {[...Array(6)].map((_, i) => <div key={i} className="confetti-piece" />)}
                 </div>
               )}
-              <div style={{ fontSize: 40, marginBottom: 6 }}>🎉</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><CheckCircle size={40} color={T.success} /></div>
               <div style={{ fontSize: 24, fontWeight: 800, color: T.success }}>₹{plan.dailyPayout}</div>
               <div style={{ fontSize: 13, color: T.textSec, marginBottom: 4 }}>Auto-approved by AI · sent to UPI</div>
               <div style={{ fontSize: 11, color: T.textMuted }}>Razorpay Ref: PAY_{Date.now().toString().slice(-8)}</div>
@@ -375,7 +378,7 @@ export default function Claims({ user, onToast }) {
       {claimState === 'fraud-blocked' && (
         <div className="fade-up" style={{ background: '#FEF0F1', border: '1.5px solid #FBBBBC', borderRadius: 12, padding: 20, marginBottom: 16 }}>
           <div style={{ textAlign: 'center', padding: '8px 0' }}>
-            <div style={{ fontSize: 40, marginBottom: 8 }}>🚨</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><Shield size={40} color="#E23744" /></div>
             <div style={{ fontSize: 16, fontWeight: 800, color: '#E23744', marginBottom: 4 }}>Claim Blocked</div>
             <div style={{ fontSize: 13, color: '#991B1B', marginBottom: 8 }}>
               {fraudDetails?.reason || 'Our AI detected suspicious activity. Payment blocked for your protection.'}
@@ -392,7 +395,7 @@ export default function Claims({ user, onToast }) {
       {claimState === 'edge-case' && (
         <div className="fade-up" style={{ background: '#FFFBEB', border: '1.5px solid #FCD34D', borderRadius: 12, padding: 20, marginBottom: 16 }}>
           <div style={{ textAlign: 'center', padding: '8px 0' }}>
-            <div style={{ fontSize: 40, marginBottom: 8 }}>⏳</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><Activity size={40} color="#92400E" /></div>
             <div style={{ fontSize: 16, fontWeight: 800, color: '#92400E', marginBottom: 4 }}>Under Review</div>
             <div style={{ fontSize: 13, color: '#78350F' }}>
               AI confidence was low. An admin has been notified and will review shortly.
@@ -407,7 +410,7 @@ export default function Claims({ user, onToast }) {
       {/* --- No active trigger --- */}
       {!activeTrigger && claimState === 'idle' && liveClaims.length === 0 && (
         <div style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 12, padding: 24, marginBottom: 16, textAlign: 'center' }}>
-          <div style={{ fontSize: 36, marginBottom: 10 }}>🛡️</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}><Shield size={36} color={T.success} /></div>
           <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 6 }}>
             No active disruption detected in your zone
           </div>
@@ -469,8 +472,8 @@ export default function Claims({ user, onToast }) {
               boxShadow: isPaid ? '0 0 0 3px rgba(96,178,70,0.08)' : 'none',
               transition: 'all .3s',
             }}>
-              <div style={{ width: 44, height: 44, borderRadius: '50%', background: sc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-                {isPaid ? '✅' : isBlocked ? '❌' : '🔍'}
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: sc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {isPaid ? <CheckCircle size={22} color={T.success} /> : isBlocked ? <XCircle size={22} color={T.danger} /> : <Search size={22} color={T.primary} />}
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>
@@ -489,8 +492,8 @@ export default function Claims({ user, onToast }) {
         {/* Seed / historical claims — only for this worker's zone */}
         {MOCK_CLAIMS.filter(c => c.zone === user?.zone || !user?.zone).map((claim) => (
           <div key={claim.id} style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', background: claim.status === 'paid' ? '#EDF7EA' : '#FEF0F1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-              {claim.status === 'paid' ? '✅' : '❌'}
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: claim.status === 'paid' ? '#EDF7EA' : '#FEF0F1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {claim.status === 'paid' ? <CheckCircle size={22} color={T.success} /> : <XCircle size={22} color={T.danger} />}
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{claim.trigger}</div>
@@ -508,7 +511,7 @@ export default function Claims({ user, onToast }) {
         {liveClaims.filter(c => c.farmer === user?.name).length === 0 &&
           MOCK_CLAIMS.filter(c => c.zone === user?.zone || !user?.zone).length === 0 && (
           <div style={{ textAlign: 'center', padding: '32px 20px', color: T.textMuted, background: T.white, borderRadius: 12, border: `1px solid ${T.border}` }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><FileText size={32} color={T.textMuted} /></div>
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>No claims yet</div>
             <div style={{ fontSize: 12 }}>Trigger a simulation to see your claims here</div>
           </div>

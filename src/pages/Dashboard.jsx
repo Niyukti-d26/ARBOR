@@ -1,5 +1,6 @@
 import { T, PLANS, PAYOUTS } from '../data/constants';
 import { SectionHeader, ProgressBar, PillTag } from '../components/shared';
+import { Shield, Zap, CloudRain, Activity } from '../components/Icons';
 
 const typeColors = { rain: T.blue, heat: T.red, crash: "#7C3AED", zone: T.amber };
 
@@ -12,10 +13,10 @@ export default function Dashboard({ user }) {
       {/* Stats Grid */}
       <div className="stats-grid">
         {[
-          { label: "EARNINGS PROTECTED", value: `₹${user.earningsProtected.toLocaleString()}`, color: T.green, icon: "🛡️", sub: "This month" },
-          { label: "CLAIMS PAID", value: "7", color: T.orange, icon: "⚡", sub: "4 auto · 3 manual" },
-          { label: "ACTIVE DISRUPTIONS", value: "2", color: T.red, icon: "🌧️", sub: "Monsoon + Heat" },
-          { label: "TRUST SCORE", value: `${user.trustScore}/100`, color: T.amber, icon: "📈", sub: "+4 this week" },
+          { label: "EARNINGS PROTECTED", value: `₹${user.earningsProtected.toLocaleString()}`, color: T.green, icon: <Shield size={32} color={T.green} />, sub: "This month" },
+          { label: "CLAIMS PAID", value: "7", color: T.orange, icon: <Zap size={32} color={T.orange} />, sub: "4 auto · 3 manual" },
+          { label: "ACTIVE DISRUPTIONS", value: "2", color: T.red, icon: <CloudRain size={32} color={T.red} />, sub: "Monsoon + Heat" },
+          { label: "TRUST SCORE", value: `${user.trustScore}/100`, color: T.amber, icon: <Activity size={32} color={T.amber} />, sub: "+4 this week" },
         ].map((s, i) => (
           <div key={i} className="stat-card" style={{ position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: -8, right: -8, fontSize: 40, opacity: .08 }}>{s.icon}</div>
@@ -32,7 +33,7 @@ export default function Dashboard({ user }) {
         border: `1px solid ${T.red}30`, borderRadius: 14, padding: "16px 20px",
         display: "flex", alignItems: "center", gap: 14, marginBottom: 24
       }}>
-        <span style={{ fontSize: 28 }}>🌧️</span>
+        <div style={{ display: 'flex', alignItems: 'center' }}><CloudRain size={28} color={T.orange} /></div>
         <div style={{ flex: 1 }}>
           <p style={{ fontWeight: 700, fontSize: 14, color: T.orange }}>
             MONSOON LOCK TRIGGERED — T.Nagar, Anna Nagar

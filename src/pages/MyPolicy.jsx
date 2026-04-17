@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { T, PLANS, MOCK_PAYMENTS } from '../data/constants';
+import { CloudRain, Zap, Shield, Activity, Money, CheckCircle, AlertTriangle } from '../components/Icons';
 import { openRazorpay } from '../utils/razorpay';
 import { readState, writeState, addPayment, EVENT_NAME } from '../utils/cropInsuranceState';
 
@@ -19,11 +20,11 @@ const PLAN_FEATURES = [
 ];
 
 const COVERAGE = [
-  { icon: '🌧️', label: 'Heavy Rainfall (>20mm)' },
-  { icon: '🌡️', label: 'Extreme Heat (>40°C)' },
-  { icon: '😷', label: 'AQI Emergency (>200)' },
-  { icon: '📱', label: 'Platform Outage (>30 min)' },
-  { icon: '🚧', label: 'Zone Lockdown' },
+  { icon: <CloudRain size={16} />, label: 'Heavy Rainfall (>20mm)' },
+  { icon: <Zap size={16} />, label: 'Extreme Heat (>40°C)' },
+  { icon: <Shield size={16} />, label: 'AQI Emergency (>200)' },
+  { icon: <Activity size={16} />, label: 'Platform Outage (>30 min)' },
+  { icon: <Activity size={16} />, label: 'Zone Lockdown' },
 ];
 
 // ── Zone risk database (ML model weights) ──
@@ -118,7 +119,7 @@ export default function MyPolicy({ user, onPlanChange, onToast }) {
       onPlanChange(targetPlan.id);
       setShowPlanSelector(false);
       setSwitchingPlan(null);
-      onToast(`✅ Downgraded to ${targetPlan.name} plan`);
+      onToast(`Downgraded to ${targetPlan.name} plan`);
       return;
     }
     openRazorpay({
@@ -130,11 +131,11 @@ export default function MyPolicy({ user, onPlanChange, onToast }) {
         onPlanChange(targetPlan.id);
         setShowPlanSelector(false);
         setSwitchingPlan(null);
-        onToast(`✅ Upgraded to ${targetPlan.name}! Ref: ${resp.paymentId}`);
+        onToast(`Upgraded to ${targetPlan.name}! Ref: ${resp.paymentId}`);
       },
       onFailure: (msg) => {
         setSwitchingPlan(null);
-        onToast(`⚠️ ${msg}`);
+        onToast(`${msg}`);
       },
     });
   };
@@ -154,10 +155,10 @@ export default function MyPolicy({ user, onPlanChange, onToast }) {
           method: 'Razorpay · UPI',
           paymentId: resp.paymentId,
         });
-        onToast(`✅ Premium paid! Ref: ${resp.paymentId}`);
+        onToast(`Premium paid! Ref: ${resp.paymentId}`);
       },
       onFailure: (msg) => {
-        onToast(`⚠️ ${msg}`);
+        onToast(`${msg}`);
       },
     });
   };
@@ -188,14 +189,14 @@ export default function MyPolicy({ user, onPlanChange, onToast }) {
   const marketAvg      = Math.round(dynamicPremium * 1.45);
 
   const ML_BREAKDOWN = [
-    { icon: '🏗️', label: 'Base Premium',                                  value: `₹${BASE_PREMIUM}`,   color: T.text    || '#1A1A1A' },
-    { icon: zoneML.riskLabel === 'LOW' ? '🟢' : zoneML.riskLabel === 'MEDIUM' ? '🟡' : '🔴',
+    { icon: <Activity size={18} color={T.text} />, label: 'Base Premium',                                  value: `₹${BASE_PREMIUM}`,   color: T.text    || '#1A1A1A' },
+    { icon: <Activity size={18} color={zoneML.riskColor} />,
       label: `Zone Risk — ${zone} (${zoneML.riskLabel})`,                  value: floodAdj > 0 ? `+₹${floodAdj}` : '₹0 (Safe)',
       color: zoneML.riskColor },
-    { icon: '🚗', label: `Traffic Density — ${city}`,                     value: `+₹${trafficAdj}`,    color: '#7C3AED' },
-    { icon: '📊', label: `Incident History (${zoneML.incidents} this mo)`, value: `+₹${incidentAdj}`,   color: '#F59E0B' },
-    ...(safeDiscount < 0 ? [{ icon: '⭐', label: `Safe Zone ML Discount`,  value: `−₹${Math.abs(safeDiscount)}`, color: '#60B246' }] : []),
-    ...(user?.trustScore >= 80 ? [{ icon: '🏆', label: 'Trust Score Reward (80+)', value: '−₹5', color: '#60B246' }] : []),
+    { icon: <Activity size={18} color="#7C3AED" />, label: `Traffic Density — ${city}`,                     value: `+₹${trafficAdj}`,    color: '#7C3AED' },
+    { icon: <Activity size={18} color="#F59E0B" />, label: `Incident History (${zoneML.incidents} this mo)`, value: `+₹${incidentAdj}`,   color: '#F59E0B' },
+    ...(safeDiscount < 0 ? [{ icon: <Zap size={18} color="#60B246" />, label: `Safe Zone ML Discount`,  value: `−₹${Math.abs(safeDiscount)}`, color: '#60B246' }] : []),
+    ...(user?.trustScore >= 80 ? [{ icon: <Shield size={18} color="#60B246" />, label: 'Trust Score Reward (80+)', value: '−₹5', color: '#60B246' }] : []),
   ];
 
   return (
@@ -233,7 +234,7 @@ export default function MyPolicy({ user, onPlanChange, onToast }) {
       {/* ── ML Pricing Breakdown Card ── */}
       <div style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 12, padding: 20, marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <span style={{ fontSize: 18 }}>🧠</span>
+          <div style={{ display: 'flex', alignItems: 'center' }}><Activity size={18} color={T.text} /></div>
           <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>ML Pricing Breakdown</div>
           <div style={{
             marginLeft: 'auto', fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
@@ -249,7 +250,7 @@ export default function MyPolicy({ user, onPlanChange, onToast }) {
               border: `1px solid ${T.border}`,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 18 }}>{item.icon}</span>
+                <span style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>
                 <span style={{ fontSize: 12, color: T.textSec }}>{item.label}</span>
               </div>
               <span style={{ fontSize: 14, fontWeight: 700, color: item.color }}>{item.value}</span>
@@ -271,7 +272,7 @@ export default function MyPolicy({ user, onPlanChange, onToast }) {
             boxShadow: premiumHighlight ? '0 0 0 4px rgba(245,158,11,0.15)' : 'none',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 20 }}>💰</span>
+              <div style={{ display: 'flex', alignItems: 'center' }}><Money size={20} color={T.text} /></div>
               <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>ML-Computed Premium</span>
             </div>
             <span style={{
@@ -286,7 +287,7 @@ export default function MyPolicy({ user, onPlanChange, onToast }) {
           {/* Safe zone savings callout */}
           {zoneML.safeDiscount > 0 && (
             <div style={{ background: '#EDF7EA', border: '1px solid #B7DFB0', borderRadius: 8, padding: '10px 14px', display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span style={{ fontSize: 16 }}>🎉</span>
+              <span style={{ display: 'flex', alignItems: 'center' }}><Zap size={16} color="#145A28" /></span>
               <span style={{ fontSize: 12, color: '#145A28', fontWeight: 600 }}>
                 You save ₹{zoneML.safeDiscount}/week because {zone} has historically low waterlogging risk — ML model rewards safe zones.
               </span>
@@ -311,7 +312,7 @@ export default function MyPolicy({ user, onPlanChange, onToast }) {
             { label: 'Zone', value: zone, result: `Risk: ${zoneML.riskLabel}`, resultColor: zoneML.riskColor },
             { label: 'City', value: city, result: `Weather: ${cityW.weatherRisk}`, resultColor: cityW.weatherRisk === 'Critical' ? '#E23744' : cityW.weatherRisk === 'High' ? '#F59E0B' : '#60B246' },
             { label: 'Temp Anomaly', value: cityW.tempAnomaly, result: `AQI Impact: ${cityW.aqiImpact}`, resultColor: '#F59E0B' },
-            { label: 'Historical Loss Ratio', value: cityW.lossRatio, result: zoneML.incidents > 5 ? '⚠ Elevated' : zoneML.incidents > 2 ? '~ Moderate' : '✓ Low', resultColor: zoneML.incidents > 5 ? '#E23744' : '#60B246' },
+            { label: 'Historical Loss Ratio', value: cityW.lossRatio, result: zoneML.incidents > 5 ? 'Elevated' : zoneML.incidents > 2 ? 'Moderate' : 'Low', resultColor: zoneML.incidents > 5 ? '#E23744' : '#60B246' },
           ].map((row, i) => (
             <div key={i} style={{
               background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 12px',
@@ -400,9 +401,9 @@ export default function MyPolicy({ user, onPlanChange, onToast }) {
                         ) : (
                           <span style={{ fontSize: 16 }}>
                             {getFeatureVal(feature, p.id) ? (
-                              <span style={{ color: T.success }}>✅</span>
+                              <span style={{ color: T.success, display: 'flex', justifyContent: 'center' }}><CheckCircle size={16} color={T.success} /></span>
                             ) : (
-                              <span style={{ color: T.textMuted }}>❌</span>
+                              <span style={{ color: T.textMuted, display: 'flex', justifyContent: 'center' }}>—</span>
                             )}
                           </span>
                         )}
@@ -452,7 +453,7 @@ export default function MyPolicy({ user, onPlanChange, onToast }) {
             <div style={{ fontSize: 28, fontWeight: 800, color: T.text }}>₹{plan.price}</div>
             <div style={{ fontSize: 11, color: T.textMuted }}>Due on {new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</div>
           </div>
-          <div style={{ fontSize: 32 }}>💳</div>
+          <div style={{ display: 'flex', alignItems: 'center' }}><Money size={32} color={T.primary} /></div>
         </div>
         {payState === 'idle' && (
           <button onClick={handlePremiumPay} style={{
@@ -462,13 +463,13 @@ export default function MyPolicy({ user, onPlanChange, onToast }) {
             cursor: 'pointer', fontFamily: 'Inter, sans-serif',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}>
-            <span>⚡</span>
+            <span style={{ display: 'flex', alignItems: 'center' }}><Zap size={14} color="white" /></span>
             Pay ₹{plan.price} via Razorpay
           </button>
         )}
         {payState === 'done' && (
           <div className="fade-up" style={{ textAlign: 'center', padding: '16px 0' }}>
-            <div style={{ fontSize: 40 }}>✅</div>
+            <div style={{ display: 'flex', justifyContent: 'center' }}><CheckCircle size={40} color={T.success} /></div>
             <div style={{ fontSize: 14, fontWeight: 700, color: T.success, marginTop: 8 }}>Payment Successful!</div>
             <div style={{ fontSize: 12, color: T.textMuted }}>₹{plan.price} paid via Razorpay</div>
             <button onClick={() => setPayState('idle')} style={{ marginTop: 10, padding: '6px 14px', borderRadius: 6, border: `1px solid ${T.border}`, background: 'none', color: T.textSec, fontSize: 11, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Pay again</button>
@@ -479,7 +480,7 @@ export default function MyPolicy({ user, onPlanChange, onToast }) {
             <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>Auto-renewal</div>
             <div style={{ fontSize: 11, color: T.textMuted }}>Premium debited automatically each week</div>
           </div>
-          <div className={`toggle ${autoRenew ? 'on' : ''}`} onClick={() => { setAutoRenew(s => !s); onToast(autoRenew ? '⏸ Auto-renewal disabled' : '✅ Auto-renewal enabled'); }} />
+          <div className={`toggle ${autoRenew ? 'on' : ''}`} onClick={() => { setAutoRenew(s => !s); onToast(autoRenew ? 'Auto-renewal disabled' : 'Auto-renewal enabled'); }} />
         </div>
       </div>
 
@@ -516,7 +517,7 @@ export default function MyPolicy({ user, onPlanChange, onToast }) {
               background: isLive && i === 0 ? '#FAFFFA' : T.white,
               transition: 'background .4s',
             }}>
-              <div style={{ fontSize: 14, marginRight: 12 }}>{pay.status === 'success' ? '✅' : '❌'}</div>
+              <div style={{ display: 'flex', alignItems: 'center', marginRight: 12 }}>{pay.status === 'success' ? <CheckCircle size={14} color={T.success} /> : <AlertTriangle size={14} color={T.danger} />}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: T.text }}>
                   {pay.method}

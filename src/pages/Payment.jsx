@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { T, PLANS, PAYMENT_HISTORY } from '../data/constants';
 import { PillTag, Spinner } from '../components/shared';
+import { Money, CheckCircle, XCircle, AlertTriangle, Lock, Shield, Phone, Activity } from '../components/Icons';
 
 export default function Payment({ user, onToast }) {
   const [payState, setPayState] = useState('idle');
@@ -52,7 +53,7 @@ export default function Payment({ user, onToast }) {
                   <p style={{ fontSize: 12, opacity: 0.85, marginTop: 4 }}>{plan.name} Plan · Weekly payment</p>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 42 }}>💳</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}><Money size={42} /></div>
                   <p style={{ fontSize: 10, opacity: 0.8, marginTop: 4 }}>Next: 27 Mar</p>
                 </div>
               </div>
@@ -61,9 +62,10 @@ export default function Payment({ user, onToast }) {
               {payState === 'idle' && (
                 <button className="btn-primary" onClick={initiatePayment} style={{
                   background: `linear-gradient(135deg, #528FF0, #2962FF)`,
-                  boxShadow: '0 4px 14px rgba(41,98,255,.35)', fontSize: 15
+                  boxShadow: '0 4px 14px rgba(41,98,255,.35)', fontSize: 15,
+                  display: 'flex', alignItems: 'center', gap: 8
                 }}>
-                  💳 Pay ₹{plan.price} via Razorpay
+                  <Money size={18} /> Pay ₹{plan.price} via Razorpay
                 </button>
               )}
               {payState === 'processing' && (
@@ -145,7 +147,7 @@ export default function Payment({ user, onToast }) {
                     background: 'white', display: 'inline-flex', alignItems: 'center', gap: 8,
                     border: `1px solid ${T.border}`
                   }}>
-                    <span style={{ fontSize: 14 }}>🏦</span>
+                    <Activity size={18} color={T.textSec} />
                     <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>
                       Txn ID: RZP-{Date.now().toString().slice(-8)}
                     </span>
@@ -183,7 +185,7 @@ export default function Payment({ user, onToast }) {
                 border: `1px solid ${T.green}20`
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <span style={{ fontSize: 18 }}>✅</span>
+                  <CheckCircle size={20} color={T.green} />
                   <span style={{ fontSize: 13, fontWeight: 700, color: T.green }}>AutoPay Active</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12 }}>
@@ -203,9 +205,11 @@ export default function Payment({ user, onToast }) {
             ) : (
               <div style={{
                 padding: '14px 16px', borderRadius: 12, background: T.amberLight,
-                border: `1px solid ${T.amber}20`, fontSize: 12, color: T.amber
+                border: `1px solid ${T.amber}20`, fontSize: 12, color: T.amber,
+                display: 'flex', alignItems: 'flex-start', gap: 8
               }}>
-                ⚠️ AutoPay is disabled. You'll need to pay manually each week to keep your coverage active.
+                <div style={{ marginTop: 2, flexShrink: 0 }}><AlertTriangle size={16} color={T.amber} /></div>
+                <div>AutoPay is disabled. You'll need to pay manually each week to keep your coverage active.</div>
               </div>
             )}
           </div>
@@ -249,9 +253,10 @@ export default function Payment({ user, onToast }) {
                   <div style={{
                     width: 36, height: 36, borderRadius: 10,
                     background: (statusColors[pay.status] || T.textMuted) + '15',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 16, flexShrink: 0
-                  }}>{pay.status === 'success' ? '✅' : '❌'}</div>
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                  }}>
+                    {pay.status === 'success' ? <CheckCircle size={20} color={T.green} /> : <XCircle size={20} color={T.red} />}
+                  </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontWeight: 600, fontSize: 13 }}>₹{pay.amount} · {pay.plan}</p>
                     <p style={{ fontSize: 11, color: T.textMuted }}>{pay.date} · {pay.method}</p>
@@ -272,16 +277,16 @@ export default function Payment({ user, onToast }) {
             <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Payment Security</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
-                { icon: '🔒', label: 'SSL/TLS Encryption', desc: 'All data encrypted in transit' },
-                { icon: '🏦', label: 'Razorpay Secure', desc: 'PCI-DSS Level 1 certified gateway' },
-                { icon: '🛡️', label: 'RBI Compliant', desc: 'Full regulatory compliance' },
-                { icon: '📱', label: 'UPI Tokenization', desc: 'Card/UPI data never stored' },
+                { icon: <Lock size={20} color={T.text} />, label: 'SSL/TLS Encryption', desc: 'All data encrypted in transit' },
+                { icon: <CheckCircle size={20} color={T.text} />, label: 'Razorpay Secure', desc: 'PCI-DSS Level 1 certified gateway' },
+                { icon: <Shield size={20} color={T.text} />, label: 'RBI Compliant', desc: 'Full regulatory compliance' },
+                { icon: <Phone size={20} color={T.text} />, label: 'UPI Tokenization', desc: 'Card/UPI data never stored' },
               ].map((item, i) => (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
                   background: T.bg, borderRadius: 10, border: `1px solid ${T.border}`
                 }}>
-                  <span style={{ fontSize: 20 }}>{item.icon}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24 }}>{item.icon}</div>
                   <div>
                     <p style={{ fontSize: 13, fontWeight: 600 }}>{item.label}</p>
                     <p style={{ fontSize: 11, color: T.textMuted }}>{item.desc}</p>
